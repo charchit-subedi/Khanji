@@ -2,7 +2,7 @@ import { db } from "../firebase.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
-import * as WordMode from "./wordMode.js"; // Import the new logic
+import * as WordMode from "./wordMode.js"; // Import word logic
 
 let allData = [], filteredData = [], currentQ, score = 0;
 const sounds = {
@@ -11,13 +11,19 @@ const sounds = {
 };
 
 initCanvas();
-preLoadData(); // Use the fast loading logic we made earlier
+loadData(); // Pre-load from Firebase
+
+async function loadData() {
+    const snap = await getDocs(collection(db, "kanji"));
+    snap.forEach(doc => allData.push(doc.data()));
+    document.querySelector("button").innerText = "Start"; // Enable button
+}
 
 window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
-    if (mode.includes("word")) WordMode.initWordMode();
+    if (mode === "word_practice") WordMode.initWordMode();
 
     score = 0;
     document.getElementById("score").innerText = score;
@@ -39,14 +45,14 @@ window.nextQuestion = () => {
         currentQ = WordMode.getNextWord(filteredData);
         WordMode.renderWordUI(currentQ);
     } else {
-        // Standard Kanji Logic (Practice/Test)
-        document.getElementById("test-input-area").style.display = "none";
-        document.getElementById("canvas").style.display = "block";
+        // Kanji Test/Practice Logic
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
+        document.getElementById("canvas").style.display = "block";
+        document.getElementById("test-input-area").style.display = "none";
         
         if (mode === "kanji_test") {
             document.getElementById("question").innerText = "？";
-            document.getElementById("meaning-display").innerHTML = `<b>${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            document.getElementById("meaning-display").innerHTML = `<b style='color:green'>${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             document.getElementById("question").innerText = currentQ.kanji;
             document.getElementById("meaning-display").innerText = currentQ.meaning_en;
@@ -56,35 +62,41 @@ window.nextQuestion = () => {
 
 window.checkAction = async () => {
     const mode = document.getElementById("mode").value;
+    const isTypingMode = document.getElementById("test-input-area").style.display !== "none";
     let result;
 
-    if (mode === "word_practice" && document.getElementById("test-input-area").style.display !== "none") {
-        // Word Test Phase
+    if (isTypingMode) {
         const input = document.getElementById("answer-input").value;
         result = WordMode.checkWordAnswer(currentQ, input);
     } else {
-        // Handwriting OCR Phase (Kanji modes or Word Practice Learning)
         const candidates = await recognizeHandwriting(getInk());
         const isCorrect = candidates.slice(0, 3).includes(currentQ.kanji);
         result = { isCorrect, scoreDelta: isCorrect ? 10 : -5 };
     }
 
-    applyResult(result);
+    processResult(result);
 };
 
-function applyResult(result) {
+function processResult(res) {
     const resultEl = document.getElementById("result");
-    if (result.isCorrect) {
+    if (res.isCorrect) {
         resultEl.innerText = "✅ Correct!";
         resultEl.style.color = "green";
         sounds.correct.play();
-        score += result.scoreDelta;
+        score += res.scoreDelta;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resultEl.innerText = "❌ Try Again!";
+        resultEl.innerText = "❌ Wrong! Keep trying.";
         resultEl.style.color = "red";
         sounds.wrong.play();
-        if (score > 0) score += result.scoreDelta;
+        if (score > 0) score += res.scoreDelta;
     }
     document.getElementById("score").innerText = score;
 }
+
+window.goBack = () => {
+    document.getElementById("menu").style.display = "block";
+    document.getElementById("app").style.display = "none";
+};
+
+window.clearCanvas = clearCanvas;
