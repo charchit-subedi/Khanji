@@ -11,100 +11,102 @@ let currentLevel;
 window.startApp = async function () {
   currentMode = document.getElementById("mode").value;
   currentLevel = document.getElementById("level").value;
-  
   document.getElementById("menu").style.display = "none";
   document.getElementById("app").style.display = "block";
-  document.getElementById("modeTitle").innerText = currentMode.replace('_', ' ').toUpperCase();
-
   await loadData();
   filterData();
-  updateUIForMode(); // Setup the screen based on the name
   nextQuestion();
 };
 
-// 1. UPDATE UI BASED ON NAME
-function updateUIForMode() {
-  const canvas = document.getElementById("canvas");
-  const canvasBtn = document.querySelector('.canvas-controls');
-  
-  // Only show canvas for Kanji-specific modes
-  if (currentMode.includes("kanji")) {
-    canvas.style.display = "block";
-    if(canvasBtn) canvasBtn.style.display = "block";
-  } else {
-    canvas.style.display = "none";
-    if(canvasBtn) canvasBtn.style.display = "none";
-  }
+// BACK
+window.goBack = function () {
+  document.getElementById("menu").style.display = "block";
+  document.getElementById("app").style.display = "none";
+};
+
+// LOAD DATA
+async function loadData() {
+  allData = [];
+  const snapshot = await getDocs(collection(db, "kanji"));
+  snapshot.forEach(doc => allData.push(doc.data()));
 }
 
-// 2. DIFFERENT QUESTION LOGIC FOR EACH NAME
+// FILTER
+function filterData() {
+  filteredData = allData.filter(x => x.level === currentLevel);
+}
+
+// NEXT
 window.nextQuestion = function () {
   if (filteredData.length === 0) return;
   const i = Math.floor(Math.random() * filteredData.length);
   currentQuestion = filteredData[i];
-
-  const qElement = document.getElementById("question");
-  const input = document.getElementById("answer");
-
-  // Logic based on the mode name
-  switch(currentMode) {
-    case "kanji_practice":
-    case "kanji_test":
-      qElement.innerText = currentQuestion.kanji;
-      input.placeholder = "Enter the meaning";
-      break;
-      
-    case "word_practice":
-    case "word_test":
-      // Show reading/meaning, ask for the Kanji word
-      qElement.innerText = currentQuestion.meaning_en;
-      input.placeholder = "Type the Kanji word";
-      break;
-
-    case "all_test":
-    case "jlpt_mock":
-      // Mix it up: sometimes show Kanji, sometimes show meaning
-      if (Math.random() > 0.5) {
-        qElement.innerText = currentQuestion.kanji;
-        input.placeholder = "What does this mean?";
-      } else {
-        qElement.innerText = currentQuestion.meaning_en;
-        input.placeholder = "Write the Kanji";
-      }
-      break;
-  }
-
-  input.value = "";
-  document.getElementById("result").innerHTML = "";
+  document.getElementById("question").innerText = currentQuestion.kanji;
+  document.getElementById("answer").value = "";
+  document.getElementById("result").innerText = "";
   clearCanvas();
 };
 
-// 3. DIFFERENT CHECK LOGIC
+// CHECK (Includes Nepali and English support)
 window.checkAnswer = function () {
   const ans = document.getElementById("answer").value.toLowerCase().trim();
-  const res = document.getElementById("result");
-  
-  // Decide what the correct answer should be based on mode
-  let isCorrect = false;
-  let correctDisplay = "";
+  const correctEn = currentQuestion.meaning_en.toLowerCase().trim();
+  const correctNp = currentQuestion.meaning_np ? currentQuestion.meaning_np.trim() : "";
 
-  if (currentMode.includes("kanji")) {
-    // Checking meanings (English or Nepali)
-    const correctEn = currentQuestion.meaning_en.toLowerCase().trim();
-    const correctNp = currentQuestion.meaning_np ? currentQuestion.meaning_np.trim() : "";
-    isCorrect = (ans === correctEn || ans === correctNp);
-    correctDisplay = currentQuestion.meaning_en;
+  if (ans === correctEn || (correctNp && ans === correctNp)) {
+    document.getElementById("result").innerText = "✅ Correct";
   } else {
-    // Checking the Kanji word itself
-    isCorrect = (ans === currentQuestion.kanji);
-    correctDisplay = currentQuestion.kanji;
-  }
-
-  if (isCorrect) {
-    res.innerHTML = `<span style="color: green;">✅ Correct: ${correctDisplay}</span>`;
-  } else {
-    res.innerHTML = `<span style="color: red;">❌ Wrong. Target: ${correctDisplay}</span>`;
+    document.getElementById("result").innerText = "❌ " + currentQuestion.meaning_en;
   }
 };
 
-// ... (Keep your existing loadData, filterData, goBack, and CANVAS functions here) ...
+// ===== CANVAS LOGIC (FIXED) =====
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let drawing = false;
+
+function getCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  };
+}
+
+function startDrawing(e) {
+  drawing = true;
+  const coords = getCoords(e);
+  ctx.beginPath();
+  ctx.moveTo(coords.x, coords.y);
+}
+
+function draw(e) {
+  if (!drawing) return;
+  e.preventDefault(); 
+  const coords = getCoords(e);
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#000";
+  ctx.lineTo(coords.x, coords.y);
+  ctx.stroke();
+}
+
+function stopDrawing() {
+  drawing = false;
+}
+
+// Desktop Listeners
+canvas.addEventListener("mousedown", startDrawing);
+canvas.addEventListener("mousemove", draw);
+window.addEventListener("mouseup", stopDrawing);
+
+// Mobile Listeners
+canvas.addEventListener("touchstart", startDrawing, { passive: false });
+canvas.addEventListener("touchmove", draw, { passive: false });
+canvas.addEventListener("touchend", stopDrawing);
+
+window.clearCanvas = function () {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
