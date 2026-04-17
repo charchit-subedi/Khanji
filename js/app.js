@@ -9,28 +9,46 @@ const sounds = {
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
 };
 
+// Initialize Canvas immediately
 initCanvas();
 
-window.startApp = async () => {
+// FIX: Start loading data from Firebase as soon as the script runs
+async function preLoadData() {
+    try {
+        const snap = await getDocs(collection(db, "kanji"));
+        snap.forEach(doc => allData.push(doc.data()));
+        
+        // Data is ready - enable the start button
+        const btn = document.getElementById("startBtn");
+        btn.disabled = false;
+        btn.innerText = "Start Learning";
+        btn.style.background = "#4CAF50";
+        console.log("Firebase data pre-loaded.");
+    } catch (e) {
+        console.error("Data load failed:", e);
+        document.getElementById("startBtn").innerText = "Load Error (Check Connection)";
+    }
+}
+preLoadData();
+
+window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
+    
+    filteredData = allData.filter(x => x.level === level);
+    if (filteredData.length === 0) {
+        alert("No data found for this level!");
+        return;
+    }
+
     score = 0;
     document.getElementById("score").innerText = score;
-    
     document.getElementById("menu").style.display = "none";
     document.getElementById("app").style.display = "block";
-    document.getElementById("modeTitle").innerText = mode.replace("_", " ").toUpperCase();
+    document.getElementById("modeTitle").innerText = mode.toUpperCase();
     
-    await loadData();
-    filteredData = allData.filter(x => x.level === level);
     window.nextQuestion();
 };
-
-async function loadData() {
-    if (allData.length > 0) return;
-    const snap = await getDocs(collection(db, "kanji"));
-    snap.forEach(doc => allData.push(doc.data()));
-}
 
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
@@ -39,32 +57,21 @@ window.nextQuestion = () => {
     const questionEl = document.getElementById("question");
     const meaningEl = document.getElementById("meaning-display");
 
-    if (mode === "kanji_test") {
-        // Test Mode: Hide Kanji, show Furigana and Meaning
-        questionEl.innerText = "？"; 
-        meaningEl.innerHTML = `
-            <div style="font-size: 1.6rem; color: #4CAF50; font-weight: bold; margin-bottom: 8px;">
-                ${currentQ.reading || ''}
-            </div>
-            <div style="font-size: 1.2rem; color: #555;">
-                ${currentQ.meaning_en}
-            </div>
-        `;
-    } else {
-        // Practice Mode: Show everything including the Kanji
-        questionEl.innerText = currentQ.kanji;
-        meaningEl.innerHTML = `
-            <div style="font-size: 1.1rem; color: #888;">${currentQ.reading || ''}</div>
-            <div>${currentQ.meaning_en}</div>
-        `;
-    }
-
+    // Reset UI
     document.getElementById("result").innerText = "";
     document.getElementById("nextBtn").style.display = "none";
     clearCanvas();
+
+    if (mode === "kanji_test") {
+        questionEl.innerText = "？";
+        meaningEl.innerHTML = `<b style="color:green;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+    } else {
+        questionEl.innerText = currentQ.kanji;
+        meaningEl.innerText = currentQ.meaning_en;
+    }
 };
 
-window.checkKanji = async () => {
+window.checkAction = async () => {
     const mode = document.getElementById("mode").value;
     const resultEl = document.getElementById("result");
     resultEl.innerText = "Checking...";
@@ -75,13 +82,13 @@ window.checkKanji = async () => {
         resultEl.innerText = "✅ Correct!";
         resultEl.style.color = "green";
         sounds.correct.play();
-        if (mode === "kanji_test") score += 10;
+        if (mode.includes("test")) score += 10;
         document.getElementById("nextBtn").style.display = "block";
     } else {
         resultEl.innerText = "❌ Incorrect. Try again!";
         resultEl.style.color = "red";
         sounds.wrong.play();
-        if (mode === "kanji_test" && score > 0) score -= 5;
+        if (mode.includes("test") && score > 0) score -= 5;
     }
     document.getElementById("score").innerText = score;
 };
