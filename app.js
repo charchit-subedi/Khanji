@@ -18,7 +18,7 @@ async function preLoadData() {
         btn.disabled = false;
         btn.innerText = "Start Learning";
         btn.style.background = "#4CAF50";
-    } catch (e) { console.error("Firebase load failed", e); }
+    } catch (e) { console.error(e); }
 }
 
 window.startApp = () => {
@@ -51,12 +51,12 @@ window.nextQuestion = () => {
 
     if (mode === "word_practice") {
         if (!isTestingPhase) {
-            // --- TEACHING PHASE (No drawing, no typing) ---
+            // --- TEACHING PHASE (First 5 questions) ---
             canvas.style.display = "none";
             inputArea.style.display = "none";
-            checkBtn.style.display = "none"; // Hide check because it's just study
+            checkBtn.style.display = "none";
             clearBtn.style.display = "none";
-            document.getElementById("nextBtn").style.display = "block"; // Show next immediately
+            document.getElementById("nextBtn").style.display = "block"; // Study mode, just click next
 
             if (wordBatch.length < 5) {
                 currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
@@ -68,9 +68,8 @@ window.nextQuestion = () => {
             }
             qBox.innerText = currentQ.kanji;
             mBox.innerHTML = `<b style="color:#4CAF50; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
-
         } else {
-            // --- TESTING PHASE (Typing only) ---
+            // --- TESTING PHASE (Next 5 questions - Typing) ---
             canvas.style.display = "none";
             inputArea.style.display = "block";
             checkBtn.style.display = "block";
@@ -102,7 +101,7 @@ window.nextQuestion = () => {
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         if (mode === "kanji_test") {
             qBox.innerText = "？";
-            mBox.innerHTML = `<b style="color:green;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            mBox.innerHTML = `<b style="color:green; font-size:1.4rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             qBox.innerText = currentQ.kanji;
             mBox.innerText = currentQ.meaning_en;
@@ -120,9 +119,7 @@ window.checkAction = async () => {
         isCorrect = (val === currentQ.meaning_en.toLowerCase().trim());
         if (isCorrect && mode === "word_practice") {
             batchIndex++;
-            if (batchIndex >= 5) { 
-                isTestingPhase = false; wordBatch = []; batchIndex = 0; 
-            }
+            if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
         }
     } else {
         const candidates = await recognizeHandwriting(getInk());
