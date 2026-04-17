@@ -9,7 +9,6 @@ const sounds = {
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
 };
 
-// Initialize drawing engine
 initCanvas();
 
 window.startApp = async () => {
@@ -35,32 +34,34 @@ async function loadData() {
 
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
-    // Select random item from filtered database
     currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
     
     const questionEl = document.getElementById("question");
     const meaningEl = document.getElementById("meaning-display");
 
     if (mode === "kanji_test") {
-        // Test Mode: Hide Kanji, show Reading (Furigana) and English Meaning
+        // Test Mode: Hide Kanji, show Furigana and Meaning
         questionEl.innerText = "？"; 
         meaningEl.innerHTML = `
-            <div style="font-size: 1.4rem; color: #4CAF50; font-weight: bold; margin-bottom: 5px;">
+            <div style="font-size: 1.6rem; color: #4CAF50; font-weight: bold; margin-bottom: 8px;">
                 ${currentQ.reading || ''}
             </div>
-            <div style="font-size: 1.1rem; color: #666;">
+            <div style="font-size: 1.2rem; color: #555;">
                 ${currentQ.meaning_en}
             </div>
         `;
     } else {
-        // Practice Mode: Show the target Kanji directly
+        // Practice Mode: Show everything including the Kanji
         questionEl.innerText = currentQ.kanji;
-        meaningEl.innerText = currentQ.meaning_en;
+        meaningEl.innerHTML = `
+            <div style="font-size: 1.1rem; color: #888;">${currentQ.reading || ''}</div>
+            <div>${currentQ.meaning_en}</div>
+        `;
     }
 
     document.getElementById("result").innerText = "";
     document.getElementById("nextBtn").style.display = "none";
-    clearCanvas(); // Reset canvas and OCR stroke data
+    clearCanvas();
 };
 
 window.checkKanji = async () => {
@@ -70,7 +71,6 @@ window.checkKanji = async () => {
 
     const candidates = await recognizeHandwriting(getInk());
 
-    // Check if the correct Kanji is within Google's top recognized candidates
     if (candidates.slice(0, 3).includes(currentQ.kanji)) {
         resultEl.innerText = "✅ Correct!";
         resultEl.style.color = "green";
