@@ -10,9 +10,7 @@ export function initWordMode() {
 
 export function getNextWord(filteredData) {
     if (!isTestingPhase) {
-        // --- STUDY PHASE ---
         if (wordBatch.length < 5) {
-            // Fill the batch with 5 unique words
             let newWord;
             do {
                 newWord = filteredData[Math.floor(Math.random() * filteredData.length)];
@@ -20,7 +18,6 @@ export function getNextWord(filteredData) {
             wordBatch.push(newWord);
             return newWord;
         } else {
-            // Move through the 5 words
             const word = wordBatch[batchIndex];
             batchIndex++;
             if (batchIndex >= 5) {
@@ -30,7 +27,6 @@ export function getNextWord(filteredData) {
             return word;
         }
     } else {
-        // --- TEST PHASE ---
         return wordBatch[batchIndex];
     }
 }
@@ -42,41 +38,28 @@ export function renderWordUI(currentQ) {
     const canvas = document.getElementById("canvas");
 
     if (!isTestingPhase) {
-        // Study Phase: Show Kanji and Practice Drawing
         questionEl.innerText = currentQ.kanji;
-        meaningEl.innerHTML = `
-            <div style="color: #4CAF50; font-weight: bold; font-size: 1.2rem;">${currentQ.reading}</div>
-            <div style="color: #666;">${currentQ.meaning_en}</div>
-        `;
+        meaningEl.innerHTML = `<b style="color:#4CAF50">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         inputArea.style.display = "none";
         canvas.style.display = "block";
     } else {
-        // Test Phase: Show only Furigana (Reading) and ask for English
-        questionEl.innerText = currentQ.reading;
+        questionEl.innerText = currentQ.reading; // Show Furigana
         meaningEl.innerText = "Type the English meaning:";
         inputArea.style.display = "block";
         canvas.style.display = "none";
         document.getElementById("answer-input").value = "";
-        document.getElementById("answer-input").focus();
     }
 }
 
 export function checkWordAnswer(currentQ, userInput) {
     const isCorrect = userInput.toLowerCase().trim() === currentQ.meaning_en.toLowerCase().trim();
-    
     if (isCorrect) {
         batchIndex++;
-        // If all 5 words are finished, reset for a new batch of 5
         if (batchIndex >= 5) {
             isTestingPhase = false;
             wordBatch = [];
             batchIndex = 0;
         }
     }
-    
-    return {
-        isCorrect,
-        scoreDelta: isCorrect ? 10 : -5,
-        isFinished: batchIndex === 0 && !isTestingPhase
-    };
+    return { isCorrect, scoreDelta: isCorrect ? 10 : -5 };
 }
