@@ -11,10 +11,8 @@ let currentLevel;
 window.startApp = async function () {
   currentMode = document.getElementById("mode").value;
   currentLevel = document.getElementById("level").value;
-
   document.getElementById("menu").style.display = "none";
   document.getElementById("app").style.display = "block";
-
   await loadData();
   filterData();
   nextQuestion();
@@ -40,86 +38,75 @@ function filterData() {
 
 // NEXT
 window.nextQuestion = function () {
+  if (filteredData.length === 0) return;
   const i = Math.floor(Math.random() * filteredData.length);
   currentQuestion = filteredData[i];
-
   document.getElementById("question").innerText = currentQuestion.kanji;
   document.getElementById("answer").value = "";
   document.getElementById("result").innerText = "";
+  clearCanvas();
 };
 
-// CHECK
+// CHECK (Includes Nepali and English support)
 window.checkAnswer = function () {
-  const ans = document.getElementById("answer").value.toLowerCase();
+  const ans = document.getElementById("answer").value.toLowerCase().trim();
+  const correctEn = currentQuestion.meaning_en.toLowerCase().trim();
+  const correctNp = currentQuestion.meaning_np ? currentQuestion.meaning_np.trim() : "";
 
-  if (ans === currentQuestion.meaning_en.toLowerCase() ||
-      ans === currentQuestion.meaning_np) {
+  if (ans === correctEn || (correctNp && ans === correctNp)) {
     document.getElementById("result").innerText = "✅ Correct";
   } else {
-    document.getElementById("result").innerText =
-      "❌ " + currentQuestion.meaning_en;
+    document.getElementById("result").innerText = "❌ " + currentQuestion.meaning_en;
   }
 };
 
-// ===== CANVAS DRAW (FIXED FOR MOBILE) =====
+// ===== CANVAS LOGIC (FIXED) =====
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-
 let drawing = false;
 
-// Mouse
-canvas.addEventListener("mousedown", () => drawing = true);
-canvas.addEventListener("mouseup", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-canvas.addEventListener("mousemove", draw);
-
-// Touch
-canvas.addEventListener("touchstart", () => drawing = true);
-canvas.addEventListener("touchend", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-canvas.addEventListener("touchmove", function(e) {
-  e.preventDefault();
-
+function getCoords(e) {
   const rect = canvas.getBoundingClientRect();
-  const touch = e.touches[0];
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  };
+}
 
-  const x = touch.clientX - rect.left;
-  const y = touch.clientY - rect.top;
-
-  drawTouch(x, y);
-});
+function startDrawing(e) {
+  drawing = true;
+  const coords = getCoords(e);
+  ctx.beginPath();
+  ctx.moveTo(coords.x, coords.y);
+}
 
 function draw(e) {
   if (!drawing) return;
-
+  e.preventDefault(); 
+  const coords = getCoords(e);
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
-
-  ctx.lineTo(e.offsetX, e.offsetY);
+  ctx.strokeStyle = "#000";
+  ctx.lineTo(coords.x, coords.y);
   ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(e.offsetX, e.offsetY);
 }
 
-function drawTouch(x, y) {
-  if (!drawing) return;
-
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-
-  ctx.lineTo(x, y);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(x, y);
+function stopDrawing() {
+  drawing = false;
 }
 
-// CLEAR
+// Desktop Listeners
+canvas.addEventListener("mousedown", startDrawing);
+canvas.addEventListener("mousemove", draw);
+window.addEventListener("mouseup", stopDrawing);
+
+// Mobile Listeners
+canvas.addEventListener("touchstart", startDrawing, { passive: false });
+canvas.addEventListener("touchmove", draw, { passive: false });
+canvas.addEventListener("touchend", stopDrawing);
+
 window.clearCanvas = function () {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 };
