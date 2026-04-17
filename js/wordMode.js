@@ -1,4 +1,3 @@
-// Local variables for this mode
 let wordBatch = [];
 let batchIndex = 0;
 let isTestingPhase = false;
@@ -9,31 +8,33 @@ export function initWordMode() {
     isTestingPhase = false;
 }
 
-// Logic to decide which word comes next
 export function getNextWord(filteredData) {
     if (!isTestingPhase) {
-        // Phase 1: Teaching (First 5 words)
+        // --- STUDY PHASE ---
         if (wordBatch.length < 5) {
-            const newWord = filteredData[Math.floor(Math.random() * filteredData.length)];
+            // Fill the batch with 5 unique words
+            let newWord;
+            do {
+                newWord = filteredData[Math.floor(Math.random() * filteredData.length)];
+            } while (wordBatch.includes(newWord));
             wordBatch.push(newWord);
             return newWord;
         } else {
-            // After 5 words are picked, we show them once
+            // Move through the 5 words
             const word = wordBatch[batchIndex];
             batchIndex++;
             if (batchIndex >= 5) {
-                isTestingPhase = true; // Switch to Test after 5th word
+                isTestingPhase = true;
                 batchIndex = 0;
             }
             return word;
         }
     } else {
-        // Phase 2: Testing (Ask the same 5 words)
+        // --- TEST PHASE ---
         return wordBatch[batchIndex];
     }
 }
 
-// Update the UI based on whether we are Learning or Testing
 export function renderWordUI(currentQ) {
     const questionEl = document.getElementById("question");
     const meaningEl = document.getElementById("meaning-display");
@@ -41,39 +42,41 @@ export function renderWordUI(currentQ) {
     const canvas = document.getElementById("canvas");
 
     if (!isTestingPhase) {
-        // Learning: Show Kanji, Reading, and Meaning
+        // Study Phase: Show Kanji and Practice Drawing
         questionEl.innerText = currentQ.kanji;
         meaningEl.innerHTML = `
-            <div style="color: #4CAF50; font-weight: bold;">${currentQ.reading}</div>
-            <div>${currentQ.meaning_en}</div>
+            <div style="color: #4CAF50; font-weight: bold; font-size: 1.2rem;">${currentQ.reading}</div>
+            <div style="color: #666;">${currentQ.meaning_en}</div>
         `;
         inputArea.style.display = "none";
         canvas.style.display = "block";
     } else {
-        // Testing: Show only reading (Furigana), hide Kanji/Meaning
+        // Test Phase: Show only Furigana (Reading) and ask for English
         questionEl.innerText = currentQ.reading;
-        meaningEl.innerText = "What is the English meaning?";
+        meaningEl.innerText = "Type the English meaning:";
         inputArea.style.display = "block";
-        canvas.style.display = "none"; // Hide canvas since we are typing
+        canvas.style.display = "none";
+        document.getElementById("answer-input").value = "";
+        document.getElementById("answer-input").focus();
     }
 }
 
-// Check the typed answer
 export function checkWordAnswer(currentQ, userInput) {
     const isCorrect = userInput.toLowerCase().trim() === currentQ.meaning_en.toLowerCase().trim();
     
     if (isCorrect) {
         batchIndex++;
-        // If we finished testing all 5 words, reset the cycle
+        // If all 5 words are finished, reset for a new batch of 5
         if (batchIndex >= 5) {
             isTestingPhase = false;
-            wordBatch = []; 
+            wordBatch = [];
             batchIndex = 0;
         }
     }
     
     return {
         isCorrect,
-        scoreDelta: isCorrect ? 10 : -5
+        scoreDelta: isCorrect ? 10 : -5,
+        isFinished: batchIndex === 0 && !isTestingPhase
     };
 }
