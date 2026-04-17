@@ -6,7 +6,6 @@
   <title>JLPT Mastery</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Styling for the English typing area in Word Mode */
     #test-input-area {
       background: #e8f5e9;
       padding: 15px;
@@ -20,11 +19,6 @@
       font-size: 1.1rem;
       border-radius: 8px;
       border: 1px solid #ccc;
-      outline: none;
-    }
-    #answer-input:focus {
-      border-color: #4CAF50;
-      box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
     }
   </style>
 </head>
@@ -32,38 +26,33 @@
 
   <div id="menu" class="container">
     <h1>JLPT Practice</h1>
+    <h3>Select Mode</h3>
+    <select id="mode">
+      <option value="kanji_practice">Kanji Practice</option>
+      <option value="kanji_test">Kanji Test</option>
+      <option value="word_practice">Word Practice</option>
+    </select>
+
+    <h3>Select Level</h3>
+    <select id="level">
+      <option value="N5">N5</option>
+      <option value="N4">N4</option>
+      <option value="N3">N3</option>
+    </select>
     
-    <div class="selection-box">
-      <h3>Select Mode</h3>
-      <select id="mode">
-        <option value="kanji_practice">Kanji Practice</option>
-        <option value="kanji_test">Kanji Test</option>
-        <option value="word_practice">Word Practice</option>
-      </select>
-
-      <h3>Select Level</h3>
-      <select id="level">
-        <option value="N5">N5</option>
-        <option value="N4">N4</option>
-        <option value="N3">N3</option>
-      </select>
-    </div>
-
-    <button id="startBtn" onclick="startApp()" style="background: #ffa500;" disabled>Loading Kanji...</button>
+    <button id="startBtn" onclick="startApp()" style="background: #ffa500; color: white;" disabled>Loading Data...</button>
   </div>
 
   <div id="app" class="container" style="display:none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
       <h2 id="modeTitle" style="margin: 0; font-size: 1.1rem; color: #666;">MODE</h2>
-      <div id="score-board" style="font-weight: bold; background: #eee; padding: 5px 15px; border-radius: 20px;">
-        Score: <span id="score">0</span>
-      </div>
+      <div id="score-board" style="font-weight: bold;">Score: <span id="score">0</span></div>
     </div>
 
     <div id="question-box">
       <h1 id="question">---</h1>
       <div id="arrow">↓</div>
-      <div id="meaning-display">Loading...</div>
+      <div id="meaning-display">Initializing...</div>
     </div>
 
     <canvas id="canvas" width="300" height="400"></canvas>
@@ -77,14 +66,11 @@
       <button onclick="checkAction()" style="flex: 2; background: #4CAF50; color: white;">Check</button>
     </div>
     
-    <button id="nextBtn" onclick="nextQuestion()" style="display:none; background: #2196F3; margin-top: 10px;">Next Challenge →</button>
-
-    <p id="result" style="font-weight: bold; font-size: 1.1rem; margin-top: 15px;"></p>
-
-    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; font-size: 0.9rem; color: white;">Back to Menu</button>
+    <button id="nextBtn" onclick="nextQuestion()" style="display:none; background: #2196F3;">Next →</button>
+    <p id="result" style="font-weight: bold; margin-top: 15px;"></p>
+    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; color: white;">Back</button>
   </div>
 
   <script type="module" src="js/app.js"></script>
-
 </body>
 </html>
