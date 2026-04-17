@@ -1,5 +1,5 @@
 import { db } from "./firebase.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"; // Note: Ensure this matches your firebase version imports
 
 let allData = [];
 let filteredData = [];
@@ -14,6 +14,9 @@ window.startApp = async function () {
 
   document.getElementById("menu").style.display = "none";
   document.getElementById("app").style.display = "block";
+  
+  // Update the title based on mode
+  document.getElementById("modeTitle").innerText = currentMode.replace('_', ' ').toUpperCase();
 
   await loadData();
   filterData();
@@ -29,95 +32,110 @@ window.goBack = function () {
 // LOAD DATA
 async function loadData() {
   allData = [];
-  const snapshot = await getDocs(collection(db, "kanji"));
-  snapshot.forEach(doc => allData.push(doc.data()));
+  try {
+    const snapshot = await getDocs(collection(db, "kanji"));
+    snapshot.forEach(doc => allData.push(doc.data()));
+  } catch (error) {
+    console.error("Error loading data from Firestore: ", error);
+    alert("Failed to load data. Please check your Firestore rules.");
+  }
 }
 
 // FILTER
 function filterData() {
   filteredData = allData.filter(x => x.level === currentLevel);
+  if (filteredData.length === 0) {
+    alert("No data found for the selected level.");
+  }
 }
 
 // NEXT
 window.nextQuestion = function () {
+  if (filteredData.length === 0) return;
+
   const i = Math.floor(Math.random() * filteredData.length);
   currentQuestion = filteredData[i];
 
   document.getElementById("question").innerText = currentQuestion.kanji;
   document.getElementById("answer").value = "";
   document.getElementById("result").innerText = "";
+  
+  // Issue Fix: Auto-clear canvas for the next question
+  window.clearCanvas();
 };
 
 // CHECK
 window.checkAnswer = function () {
-  const ans = document.getElementById("answer").value.toLowerCase();
+  const ans = document.getElementById("answer").value.toLowerCase().trim();
+  const resultEl = document.getElementById("result");
 
-  if (ans === currentQuestion.meaning_en.toLowerCase() ||
-      ans === currentQuestion.meaning_np) {
-    document.getElementById("result").innerText = "✅ Correct";
+  // Issue Fix: Add color feedback and better string handling
+  const isCorrect = ans === currentQuestion.meaning_en.toLowerCase() || 
+                    ans === currentQuestion.meaning_np;
+
+  if (isCorrect) {
+    resultEl.innerText = "✅ Correct";
+    resultEl.style.color = "#4CAF50";
   } else {
-    document.getElementById("result").innerText =
-      "❌ " + currentQuestion.meaning_en;
+    resultEl.innerText = "❌ Correct Answer: " + currentQuestion.meaning_en;
+    resultEl.style.color = "#f44336";
   }
 };
 
-// ===== CANVAS DRAW (FIXED FOR MOBILE) =====
+// ===== CANVAS DRAW (SMOOTHER LOGIC) =====
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-
 let drawing = false;
 
-// Mouse
-canvas.addEventListener("mousedown", () => drawing = true);
-canvas.addEventListener("mouseup", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-canvas.addEventListener("mousemove", draw);
-
-// Touch
-canvas.addEventListener("touchstart", () => drawing = true);
-canvas.addEventListener("touchend", () => {
-  drawing = false;
-  ctx.beginPath();
-});
-canvas.addEventListener("touchmove", function(e) {
-  e.preventDefault();
-
+function getXY(e) {
   const rect = canvas.getBoundingClientRect();
-  const touch = e.touches[0];
-
-  const x = touch.clientX - rect.left;
-  const y = touch.clientY - rect.top;
-
-  drawTouch(x, y);
-});
-
-function draw(e) {
-  if (!drawing) return;
-
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-
-  ctx.lineTo(e.offsetX, e.offsetY);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(e.offsetX, e.offsetY);
+  if (e.touches) {
+    return {
+      x: e.touches[0].clientX - rect.left,
+      y: e.touches[0].clientY - rect.top
+    };
+  }
+  return {
+    x: e.offsetX,
+    y: e.offsetY
+  };
 }
 
-function drawTouch(x, y) {
-  if (!drawing) return;
-
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-
-  ctx.lineTo(x, y);
-  ctx.stroke();
-
+function startDrawing(e) {
+  drawing = true;
+  const { x, y } = getXY(e);
   ctx.beginPath();
   ctx.moveTo(x, y);
 }
+
+function stopDrawing() {
+  drawing = false;
+  ctx.closePath();
+}
+
+function draw(e) {
+  if (!drawing) return;
+  if (e.type === 'touchmove') e.preventDefault();
+
+  const { x, y } = getXY(e);
+  
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round"; // Issue Fix: Smoother line connections
+  ctx.strokeStyle = "#333";
+
+  ctx.lineTo(x, y);
+  ctx.stroke();
+}
+
+// Event Listeners
+canvas.addEventListener("mousedown", startDrawing);
+canvas.addEventListener("mouseup", stopDrawing);
+canvas.addEventListener("mousemove", draw);
+
+canvas.addEventListener("touchstart", startDrawing);
+canvas.addEventListener("touchend", stopDrawing);
+canvas.addEventListener("touchmove", draw);
 
 // CLEAR
 window.clearCanvas = function () {
