@@ -1,13 +1,52 @@
 import { db } from "./firebase.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { 
+    getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { 
+    doc, getDoc, setDoc, updateDoc, collection, getDocs 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
 
+const auth = getAuth();
+const provider = new GoogleAuthProvider();
+
+let currentUser = null;
 let allData = [], filteredData = [], currentQ, score = 0;
 let wordBatch = [], batchIndex = 0, isTestingPhase = false;
 
 initCanvas();
-preLoadData();
+
+// --- AUTHENTICATION & INITIALIZATION ---
+window.login = () => {
+    signInWithPopup(auth, provider).catch(err => alert("Login failed: " + err.message));
+};
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            // NEW USER: Give 100 points
+            score = 100;
+            await setDoc(userRef, {
+                name: user.displayName,
+                email: user.email,
+                points: score,
+                isAdmin: false
+            });
+        } else {
+            // EXISTING USER: Load points
+            score = userSnap.data().points || 0;
+        }
+
+        document.getElementById("auth-overlay").style.display = "none";
+        updateUI();
+        preLoadData();
+    }
+});
 
 async function preLoadData() {
     try {
@@ -18,17 +57,27 @@ async function preLoadData() {
         btn.disabled = false;
         btn.innerText = "Start Learning";
         btn.style.background = "#4CAF50";
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Firebase Error:", e); }
 }
 
+function updateUI() {
+    document.getElementById("score").innerText = score;
+    document.getElementById("user-info").innerText = `User: ${currentUser.displayName} | Points: ${score}`;
+}
+
+async function savePoints() {
+    if (currentUser) {
+        const userRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userRef, { points: score });
+    }
+}
+
+// --- APP NAVIGATION ---
 window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
-    // Reset Batch Logic
     wordBatch = []; batchIndex = 0; isTestingPhase = false;
-    score = 0;
-    document.getElementById("score").innerText = score;
     document.getElementById("menu").style.display = "none";
     document.getElementById("app").style.display = "block";
     document.getElementById("modeTitle").innerText = mode.toUpperCase().replace("_", " ");
@@ -51,7 +100,7 @@ window.nextQuestion = () => {
 
     if (mode === "word_practice") {
         if (!isTestingPhase) {
-            // PHASE 1: TEACHING (Show first 5 words)
+            // TEACHING PHASE
             canvas.style.display = "none";
             inputArea.style.display = "none";
             checkBtn.style.display = "none";
@@ -68,17 +117,16 @@ window.nextQuestion = () => {
             qBox.innerText = currentQ.kanji;
             mBox.innerHTML = `<b style="color:#4CAF50; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
-            // PHASE 2: TESTING (Type meaning for those 5 words)
+            // TESTING PHASE (Typing)
             canvas.style.display = "none";
             inputArea.style.display = "block";
             checkBtn.style.display = "block";
             currentQ = wordBatch[batchIndex];
             qBox.innerText = currentQ.reading;
-            mBox.innerText = "Type the English meaning:";
+            mBox.innerText = "What is the English meaning?";
             document.getElementById("answer-input").value = "";
         }
-    } 
-    else if (mode === "word_test") {
+    } else if (mode === "word_test") {
         canvas.style.display = "none";
         inputArea.style.display = "block";
         checkBtn.style.display = "block";
@@ -87,14 +135,14 @@ window.nextQuestion = () => {
         mBox.innerText = "Type the English meaning";
         document.getElementById("answer-input").value = "";
     } else {
-        // KANJI DRAWING MODES
+        // KANJI DRAWING
         canvas.style.display = "block";
         inputArea.style.display = "none";
         checkBtn.style.display = "block";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         if (mode === "kanji_test") {
             qBox.innerText = "？";
-            mBox.innerHTML = `<b style="color:green; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            mBox.innerHTML = `<b style="color:green; font-size:1.3rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             qBox.innerText = currentQ.kanji;
             mBox.innerText = currentQ.meaning_en;
@@ -103,14 +151,13 @@ window.nextQuestion = () => {
 };
 
 window.checkAction = async () => {
-    const mode = document.getElementById("mode").value;
     const isTyping = document.getElementById("test-input-area").style.display === "block";
     let isCorrect = false;
 
     if (isTyping) {
         const val = document.getElementById("answer-input").value.toLowerCase().trim();
         isCorrect = (val === currentQ.meaning_en.toLowerCase().trim());
-        if (isCorrect && mode === "word_practice") {
+        if (isCorrect && document.getElementById("mode").value === "word_practice") {
             batchIndex++;
             if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
         }
@@ -126,11 +173,24 @@ window.checkAction = async () => {
         score += 10;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resEl.innerText = "❌ Try Again!";
+        resEl.innerText = "❌ Incorrect. Try again!";
         resEl.style.color = "red";
-        if (score > 0) score -= 5;
+        if (score >= 5) score -= 5;
     }
-    document.getElementById("score").innerText = score;
+    updateUI();
+    savePoints();
+};
+
+// --- ADMIN SYSTEM ---
+window.showAdminLogin = () => { document.getElementById("admin-modal").style.display = "block"; };
+window.verifyAdmin = async () => {
+    const pass = document.getElementById("admin-pass").value;
+    if (pass === "admin123") { // REPLACE THIS
+        const userRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userRef, { isAdmin: true });
+        alert("Admin Permissions Active.");
+        document.getElementById("admin-modal").style.display = "none";
+    } else { alert("Wrong Password"); }
 };
 
 window.goBack = () => {
