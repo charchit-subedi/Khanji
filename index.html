@@ -28,29 +28,31 @@
   </div>
 
   <div id="app" class="container" style="display:none;">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <h2 id="modeTitle">MODE</h2>
-      <div id="score-board" style="font-weight: bold;">Score: <span id="score">0</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h2 id="modeTitle" style="margin: 0; font-size: 1.2rem; color: #666;">MODE</h2>
+      <div id="score-board" style="font-weight: bold; background: #eee; padding: 5px 15px; border-radius: 20px;">
+        Score: <span id="score">0</span>
+      </div>
     </div>
 
-    <div id="question-box" style="background: white; padding: 20px; border-radius: 10px; margin: 15px 0;">
-      <h1 id="question" style="font-size: 4rem; margin: 0;">---</h1>
-      <div id="arrow" style="font-size: 1.5rem; color: #4CAF50; margin: 5px 0;">↓</div>
-      <div id="meaning-display" style="min-height: 50px;">Meaning & Furigana</div>
+    <div id="question-box" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+      <h1 id="question" style="font-size: 5rem; margin: 0; color: #333;">---</h1>
+      <div id="arrow" style="font-size: 1.5rem; color: #4CAF50; margin: 10px 0;">↓</div>
+      <div id="meaning-display" style="min-height: 70px;">Loading...</div>
     </div>
 
-    <canvas id="canvas" width="300" height="400" style="background: white; border: 2px dashed #ccc; touch-action: none;"></canvas>
+    <canvas id="canvas" width="300" height="400" style="background: white; border: 3px solid #4CAF50; border-radius: 15px; touch-action: none;"></canvas>
     
-    <div style="display: flex; gap: 10px; margin-top: 10px;">
-      <button onclick="clearCanvas()" style="background: #9e9e9e;">Clear</button>
-      <button onclick="checkKanji()">Check</button>
+    <div style="display: flex; gap: 10px; margin-top: 15px;">
+      <button onclick="clearCanvas()" style="background: #9e9e9e; flex: 1;">Clear</button>
+      <button onclick="checkKanji()" style="flex: 2;">Check</button>
     </div>
     
-    <button id="nextBtn" onclick="nextQuestion()" style="display:none; background: #2196F3;">Next →</button>
+    <button id="nextBtn" onclick="nextQuestion()" style="display:none; background: #2196F3; margin-top: 10px;">Next Challenge →</button>
 
-    <p id="result" style="font-weight: bold; margin-top: 10px;"></p>
+    <p id="result" style="font-weight: bold; font-size: 1.1rem; margin-top: 15px;"></p>
 
-    <button onclick="goBack()" style="background: #f44336; margin-top: 20px;">Back</button>
+    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; font-size: 0.9rem;">Back to Menu</button>
   </div>
 
   <script type="module" src="js/app.js"></script>
