@@ -1,0 +1,112 @@
+/* ===== GLOBAL ===== */
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+/* ===== CONTAINER ===== */
+.container {
+  max-width: 400px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* ===== HEADINGS ===== */
+h1 {
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+h2 {
+  font-size: 32px;
+  margin: 15px 0;
+}
+
+h3 {
+  margin-top: 20px;
+}
+
+/* ===== SELECT DROPDOWN ===== */
+select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+/* ===== BUTTONS ===== */
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+  background: #4CAF50;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #45a049;
+}
+
+/* ===== QUESTION BOX ===== */
+#question-box {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  margin: 15px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ===== CANVAS ===== */
+canvas {
+  background: white;
+  border: 2px dashed #ccc;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+/* ===== INPUT ===== */
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+/* ===== RESULT TEXT ===== */
+#result {
+  margin-top: 15px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* ===== BACK BUTTON (DIFFERENT COLOR) ===== */
+button:last-child {
+  background: #f44336;
+}
+
+button:last-child:hover {
+  background: #d32f2f;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 500px) {
+  h2 {
+    font-size: 26px;
+  }
+
+  canvas {
+    width: 100%;
+    height: auto;
+  }
+}
