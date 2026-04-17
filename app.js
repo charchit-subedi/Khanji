@@ -26,7 +26,7 @@ async function preLoadData() {
             btn.style.background = "#4CAF50";
         }
     } catch (e) {
-        document.getElementById("startBtn").innerText = "Error Loading Data";
+        document.getElementById("startBtn").innerText = "Connection Error";
     }
 }
 
@@ -34,7 +34,7 @@ window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
-    // Reset Logic
+    // Reset word batch variables
     wordBatch = []; batchIndex = 0; isTestingPhase = false;
     score = 0;
     document.getElementById("score").innerText = score;
@@ -68,7 +68,7 @@ window.nextQuestion = () => {
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         if (mode === "kanji_test") {
             qBox.innerText = "？";
-            mBox.innerHTML = `<b style="color:green;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            mBox.innerHTML = `<b style="color:green; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             qBox.innerText = currentQ.kanji;
             mBox.innerText = currentQ.meaning_en;
@@ -76,9 +76,9 @@ window.nextQuestion = () => {
     }
 };
 
-// Mode: Word Practice (Learn 5 -> Test 5)
 function handleWordPractice(qBox, mBox, inputArea, canvasArea) {
     if (!isTestingPhase) {
+        // Phase 1: Drawing/Learning 5 words
         if (wordBatch.length < 5) {
             let nw = filteredData[Math.floor(Math.random() * filteredData.length)];
             wordBatch.push(nw);
@@ -93,6 +93,7 @@ function handleWordPractice(qBox, mBox, inputArea, canvasArea) {
         inputArea.style.display = "none";
         canvasArea.style.display = "block";
     } else {
+        // Phase 2: Typing Test for those same 5 words
         currentQ = wordBatch[batchIndex];
         qBox.innerText = currentQ.reading;
         mBox.innerText = "What is the English meaning?";
@@ -102,8 +103,8 @@ function handleWordPractice(qBox, mBox, inputArea, canvasArea) {
     }
 }
 
-// Mode: Word Test (Random Furigana -> Type Meaning)
 function handleWordTest(qBox, mBox, inputArea, canvasArea) {
+    // Mode: Word Test (Random Furigana -> Type English)
     currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
     qBox.innerText = currentQ.reading;
     mBox.innerText = "Type the English meaning:";
@@ -118,7 +119,7 @@ window.checkAction = async () => {
 
     if (isTyping) {
         const val = document.getElementById("answer-input").value.toLowerCase().trim();
-        isCorrect = val === currentQ.meaning_en.toLowerCase().trim();
+        isCorrect = (val === currentQ.meaning_en.toLowerCase().trim());
         if (isCorrect && document.getElementById("mode").value === "word_practice") {
             batchIndex++;
             if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
