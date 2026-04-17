@@ -1,18 +1,21 @@
-import { db } from "../firebase.js";
+import { db } from "./firebase.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
-import * as WordMode from "./wordMode.js";
 
+// App Variables
 let allData = [], filteredData = [], currentQ, score = 0;
+let wordBatch = [], batchIndex = 0, isTestingPhase = false;
+
 const sounds = {
     correct: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
 };
 
+// Initialize Canvas & Start Loading Data
 initCanvas();
+preLoadData();
 
-// --- PRE-LOAD LOGIC ---
 async function preLoadData() {
     try {
         const snap = await getDocs(collection(db, "kanji"));
@@ -23,26 +26,28 @@ async function preLoadData() {
         if (btn) {
             btn.disabled = false;
             btn.innerText = "Start Learning";
-            btn.style.background = "#4CAF50"; // Turns Green
+            btn.style.background = "#4CAF50"; // Turn Green when ready
         }
     } catch (e) {
-        console.error("Load failed", e);
-        document.getElementById("startBtn").innerText = "Load Error";
+        console.error("Firebase Error:", e);
+        document.getElementById("startBtn").innerText = "Connection Error";
     }
 }
-preLoadData();
 
 window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
-    if (mode === "word_practice") WordMode.initWordMode();
+    // Reset Word Cycle
+    wordBatch = [];
+    batchIndex = 0;
+    isTestingPhase = false;
 
     score = 0;
     document.getElementById("score").innerText = score;
     document.getElementById("menu").style.display = "none";
     document.getElementById("app").style.display = "block";
-    document.getElementById("modeTitle").innerText = mode.toUpperCase();
+    document.getElementById("modeTitle").innerText = mode.toUpperCase().replace("_", " ");
     
     filteredData = allData.filter(x => x.level === level);
     window.nextQuestion();
@@ -50,57 +55,95 @@ window.startApp = () => {
 
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
+    const qBox = document.getElementById("question");
+    const mBox = document.getElementById("meaning-display");
+    const inputArea = document.getElementById("test-input-area");
+    const canvasArea = document.getElementById("canvas");
+
     clearCanvas();
     document.getElementById("result").innerText = "";
     document.getElementById("nextBtn").style.display = "none";
 
     if (mode === "word_practice") {
-        currentQ = WordMode.getNextWord(filteredData);
-        WordMode.renderWordUI(currentQ);
+        handleWordCycle(qBox, mBox, inputArea, canvasArea);
     } else {
-        document.getElementById("canvas").style.display = "block";
-        document.getElementById("test-input-area").style.display = "none";
+        // Kanji Practice/Test Logic
+        inputArea.style.display = "none";
+        canvasArea.style.display = "block";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         
         if (mode === "kanji_test") {
-            document.getElementById("question").innerText = "？";
-            document.getElementById("meaning-display").innerHTML = `<b style="color:green">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            qBox.innerText = "？";
+            mBox.innerHTML = `<b style="color:green; font-size:1.2rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
-            document.getElementById("question").innerText = currentQ.kanji;
-            document.getElementById("meaning-display").innerText = currentQ.meaning_en;
+            qBox.innerText = currentQ.kanji;
+            mBox.innerText = currentQ.meaning_en;
         }
     }
 };
 
+function handleWordCycle(qBox, mBox, inputArea, canvasArea) {
+    if (!isTestingPhase) {
+        // STUDYING PHASE
+        if (wordBatch.length < 5) {
+            let nextW = filteredData[Math.floor(Math.random() * filteredData.length)];
+            wordBatch.push(nextW);
+            currentQ = nextW;
+        } else {
+            currentQ = wordBatch[batchIndex];
+            batchIndex++;
+            if (batchIndex >= 5) { isTestingPhase = true; batchIndex = 0; }
+        }
+        qBox.innerText = currentQ.kanji;
+        mBox.innerHTML = `<b style="color:#4CAF50">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+        inputArea.style.display = "none";
+        canvasArea.style.display = "block";
+    } else {
+        // TESTING PHASE
+        currentQ = wordBatch[batchIndex];
+        qBox.innerText = currentQ.reading;
+        mBox.innerText = "Type the English meaning:";
+        inputArea.style.display = "block";
+        canvasArea.style.display = "none";
+        document.getElementById("answer-input").value = "";
+    }
+}
+
 window.checkAction = async () => {
-    const mode = document.getElementById("mode").value;
     const isTyping = document.getElementById("test-input-area").style.display !== "none";
-    let result;
+    let isCorrect = false;
 
     if (isTyping) {
-        const input = document.getElementById("answer-input").value;
-        result = WordMode.checkWordAnswer(currentQ, input);
+        const val = document.getElementById("answer-input").value.toLowerCase().trim();
+        isCorrect = val === currentQ.meaning_en.toLowerCase().trim();
+        if (isCorrect) {
+            batchIndex++;
+            if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
+        }
     } else {
         const candidates = await recognizeHandwriting(getInk());
-        const isCorrect = candidates.slice(0, 3).includes(currentQ.kanji);
-        result = { isCorrect, scoreDelta: isCorrect ? 10 : -5 };
+        isCorrect = candidates.slice(0, 3).includes(currentQ.kanji);
     }
 
-    const resultEl = document.getElementById("result");
-    if (result.isCorrect) {
-        resultEl.innerText = "✅ Correct!";
-        resultEl.style.color = "green";
+    showResult(isCorrect);
+};
+
+function showResult(correct) {
+    const resEl = document.getElementById("result");
+    if (correct) {
+        resEl.innerText = "✅ Correct!";
+        resEl.style.color = "green";
         sounds.correct.play();
-        score += result.scoreDelta;
+        score += 10;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resultEl.innerText = "❌ Try Again!";
-        resultEl.style.color = "red";
+        resEl.innerText = "❌ Try Again!";
+        resEl.style.color = "red";
         sounds.wrong.play();
-        if (score > 0) score += result.scoreDelta;
+        if (score > 0) score -= 5;
     }
     document.getElementById("score").innerText = score;
-};
+}
 
 window.goBack = () => {
     document.getElementById("menu").style.display = "block";
