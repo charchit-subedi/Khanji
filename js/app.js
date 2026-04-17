@@ -9,6 +9,7 @@ const sounds = {
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
 };
 
+// Initialize drawing engine
 initCanvas();
 
 window.startApp = async () => {
@@ -34,14 +35,32 @@ async function loadData() {
 
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
+    // Select random item from filtered database
     currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
     
-    // Hide kanji if in Test Mode
-    document.getElementById("question").innerText = mode === "kanji_test" ? "？" : currentQ.kanji;
-    document.getElementById("meaning-display").innerText = currentQ.meaning_en;
+    const questionEl = document.getElementById("question");
+    const meaningEl = document.getElementById("meaning-display");
+
+    if (mode === "kanji_test") {
+        // Test Mode: Hide Kanji, show Reading (Furigana) and English Meaning
+        questionEl.innerText = "？"; 
+        meaningEl.innerHTML = `
+            <div style="font-size: 1.4rem; color: #4CAF50; font-weight: bold; margin-bottom: 5px;">
+                ${currentQ.reading || ''}
+            </div>
+            <div style="font-size: 1.1rem; color: #666;">
+                ${currentQ.meaning_en}
+            </div>
+        `;
+    } else {
+        // Practice Mode: Show the target Kanji directly
+        questionEl.innerText = currentQ.kanji;
+        meaningEl.innerText = currentQ.meaning_en;
+    }
+
     document.getElementById("result").innerText = "";
     document.getElementById("nextBtn").style.display = "none";
-    clearCanvas();
+    clearCanvas(); // Reset canvas and OCR stroke data
 };
 
 window.checkKanji = async () => {
@@ -51,6 +70,7 @@ window.checkKanji = async () => {
 
     const candidates = await recognizeHandwriting(getInk());
 
+    // Check if the correct Kanji is within Google's top recognized candidates
     if (candidates.slice(0, 3).includes(currentQ.kanji)) {
         resultEl.innerText = "✅ Correct!";
         resultEl.style.color = "green";
