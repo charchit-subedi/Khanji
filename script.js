@@ -7,7 +7,12 @@ let currentQuestion;
 let currentMode;
 let currentLevel;
 
-// Audio Files
+// Track strokes for OCR: Format is [[x,x,x], [y,y,y], [t,t,t]] per stroke
+let ink = []; 
+let currentStrokeX = [];
+let currentStrokeY = [];
+let currentStrokeT = [];
+
 const correctSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
 const wrongSound = new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3');
 
@@ -25,20 +30,17 @@ window.startApp = async function () {
   nextQuestion();
 };
 
-// BACK
 window.goBack = function () {
   document.getElementById("menu").style.display = "block";
   document.getElementById("app").style.display = "none";
 };
 
-// LOAD DATA
 async function loadData() {
   allData = [];
   const snapshot = await getDocs(collection(db, "kanji"));
   snapshot.forEach(doc => allData.push(doc.data()));
 }
 
-// FILTER
 function filterData() {
   filteredData = allData.filter(x => x.level === currentLevel);
 }
@@ -50,35 +52,65 @@ window.nextQuestion = function () {
   const i = Math.floor(Math.random() * filteredData.length);
   currentQuestion = filteredData[i];
 
-  // Update UI with Kanji and English Meaning
   document.getElementById("question").innerText = currentQuestion.kanji;
   document.getElementById("meaning-display").innerText = currentQuestion.meaning_en;
   
   document.getElementById("result").innerText = "";
-  document.getElementById("nextBtn").style.display = "none"; // Hide next button
+  document.getElementById("nextBtn").style.display = "none"; 
   window.clearCanvas();
 };
 
-// CHECK KANJI
-window.checkKanji = function () {
-  // Since we aren't using an AI recognizer yet, we simulate the check.
-  // In a real app, this would compare the canvas pixels or strokes.
-  const isCorrect = true; // Temporary logic: always true for demo
+// OCR API CALL
+async function recognizeHandwriting() {
+  if (ink.length === 0) return [];
 
-  if (isCorrect) {
-    document.getElementById("result").innerText = "✅ Excellent! Correct.";
-    document.getElementById("result").style.color = "green";
+  const url = 'https://www.google.com.tw/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8';
+  const requestBody = {
+    options: 'enable_pre_space',
+    requests: [{
+      writing_guide: { width: canvas.width, height: canvas.height },
+      ink: ink,
+      language: 'ja'
+    }]
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await response.json();
+    return data[1][0][1]; // Array of recognized characters
+  } catch (e) {
+    console.error("OCR Error:", e);
+    return [];
+  }
+}
+
+// CHECK KANJI
+window.checkKanji = async function () {
+  const resultEl = document.getElementById("result");
+  resultEl.innerText = "Checking...";
+  resultEl.style.color = "gray";
+
+  const candidates = await recognizeHandwriting();
+  
+  // Check if the target kanji is in the top 3 results from Google
+  if (candidates.slice(0, 3).includes(currentQuestion.kanji)) {
+    resultEl.innerText = "✅ Correct Kanji!";
+    resultEl.style.color = "green";
     correctSound.play();
-    document.getElementById("nextBtn").style.display = "block"; // Allow progress
+    document.getElementById("nextBtn").style.display = "block";
   } else {
-    document.getElementById("result").innerText = "❌ Not quite right. Try again!";
-    document.getElementById("result").style.color = "red";
+    resultEl.innerText = "❌ Not recognized. Try again!";
+    resultEl.style.color = "red";
     wrongSound.play();
-    document.getElementById("nextBtn").style.display = "none"; // Block progress
+    document.getElementById("nextBtn").style.display = "none";
   }
 };
 
-// ===== CANVAS DRAW (SMOOTH) =====
+// ===== CANVAS DRAW (WITH STROKE TRACKING) =====
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 let drawing = false;
@@ -87,10 +119,7 @@ function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  return {
-    x: clientX - rect.left,
-    y: clientY - rect.top
-  };
+  return { x: clientX - rect.left, y: clientY - rect.top };
 }
 
 function startDraw(e) {
@@ -98,22 +127,36 @@ function startDraw(e) {
   const pos = getPos(e);
   ctx.beginPath();
   ctx.moveTo(pos.x, pos.y);
+  
+  // Start new stroke data
+  currentStrokeX = [pos.x];
+  currentStrokeY = [pos.y];
+  currentStrokeT = [Date.now()];
 }
 
 function moveDraw(e) {
   if (!drawing) return;
   e.preventDefault();
   const pos = getPos(e);
+  
   ctx.lineWidth = 4;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#333";
   ctx.lineTo(pos.x, pos.y);
   ctx.stroke();
+
+  // Collect data points
+  currentStrokeX.push(pos.x);
+  currentStrokeY.push(pos.y);
+  currentStrokeT.push(Date.now());
 }
 
 function stopDraw() {
+  if (!drawing) return;
   drawing = false;
+  // Push the completed stroke to the ink array
+  ink.push([currentStrokeX, currentStrokeY, currentStrokeT]);
 }
 
 canvas.addEventListener("mousedown", startDraw);
@@ -126,4 +169,5 @@ canvas.addEventListener("touchend", stopDraw);
 
 window.clearCanvas = function () {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ink = []; // Reset OCR data
 };
