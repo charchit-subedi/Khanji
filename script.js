@@ -1,11 +1,15 @@
 import { db } from "./firebase.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"; // Note: Ensure this matches your firebase version imports
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 let allData = [];
 let filteredData = [];
 let currentQuestion;
 let currentMode;
 let currentLevel;
+
+// Audio Files
+const correctSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+const wrongSound = new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3');
 
 // START
 window.startApp = async function () {
@@ -14,9 +18,7 @@ window.startApp = async function () {
 
   document.getElementById("menu").style.display = "none";
   document.getElementById("app").style.display = "block";
-  
-  // Update the title based on mode
-  document.getElementById("modeTitle").innerText = currentMode.replace('_', ' ').toUpperCase();
+  document.getElementById("modeTitle").innerText = currentMode.replace("_", " ").toUpperCase();
 
   await loadData();
   filterData();
@@ -32,21 +34,13 @@ window.goBack = function () {
 // LOAD DATA
 async function loadData() {
   allData = [];
-  try {
-    const snapshot = await getDocs(collection(db, "kanji"));
-    snapshot.forEach(doc => allData.push(doc.data()));
-  } catch (error) {
-    console.error("Error loading data from Firestore: ", error);
-    alert("Failed to load data. Please check your Firestore rules.");
-  }
+  const snapshot = await getDocs(collection(db, "kanji"));
+  snapshot.forEach(doc => allData.push(doc.data()));
 }
 
 // FILTER
 function filterData() {
   filteredData = allData.filter(x => x.level === currentLevel);
-  if (filteredData.length === 0) {
-    alert("No data found for the selected level.");
-  }
 }
 
 // NEXT
@@ -56,88 +50,80 @@ window.nextQuestion = function () {
   const i = Math.floor(Math.random() * filteredData.length);
   currentQuestion = filteredData[i];
 
+  // Update UI with Kanji and English Meaning
   document.getElementById("question").innerText = currentQuestion.kanji;
-  document.getElementById("answer").value = "";
-  document.getElementById("result").innerText = "";
+  document.getElementById("meaning-display").innerText = currentQuestion.meaning_en;
   
-  // Issue Fix: Auto-clear canvas for the next question
+  document.getElementById("result").innerText = "";
+  document.getElementById("nextBtn").style.display = "none"; // Hide next button
   window.clearCanvas();
 };
 
-// CHECK
-window.checkAnswer = function () {
-  const ans = document.getElementById("answer").value.toLowerCase().trim();
-  const resultEl = document.getElementById("result");
-
-  // Issue Fix: Add color feedback and better string handling
-  const isCorrect = ans === currentQuestion.meaning_en.toLowerCase() || 
-                    ans === currentQuestion.meaning_np;
+// CHECK KANJI
+window.checkKanji = function () {
+  // Since we aren't using an AI recognizer yet, we simulate the check.
+  // In a real app, this would compare the canvas pixels or strokes.
+  const isCorrect = true; // Temporary logic: always true for demo
 
   if (isCorrect) {
-    resultEl.innerText = "✅ Correct";
-    resultEl.style.color = "#4CAF50";
+    document.getElementById("result").innerText = "✅ Excellent! Correct.";
+    document.getElementById("result").style.color = "green";
+    correctSound.play();
+    document.getElementById("nextBtn").style.display = "block"; // Allow progress
   } else {
-    resultEl.innerText = "❌ Correct Answer: " + currentQuestion.meaning_en;
-    resultEl.style.color = "#f44336";
+    document.getElementById("result").innerText = "❌ Not quite right. Try again!";
+    document.getElementById("result").style.color = "red";
+    wrongSound.play();
+    document.getElementById("nextBtn").style.display = "none"; // Block progress
   }
 };
 
-// ===== CANVAS DRAW (SMOOTHER LOGIC) =====
+// ===== CANVAS DRAW (SMOOTH) =====
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 let drawing = false;
 
-function getXY(e) {
+function getPos(e) {
   const rect = canvas.getBoundingClientRect();
-  if (e.touches) {
-    return {
-      x: e.touches[0].clientX - rect.left,
-      y: e.touches[0].clientY - rect.top
-    };
-  }
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
   return {
-    x: e.offsetX,
-    y: e.offsetY
+    x: clientX - rect.left,
+    y: clientY - rect.top
   };
 }
 
-function startDrawing(e) {
+function startDraw(e) {
   drawing = true;
-  const { x, y } = getXY(e);
+  const pos = getPos(e);
   ctx.beginPath();
-  ctx.moveTo(x, y);
+  ctx.moveTo(pos.x, pos.y);
 }
 
-function stopDrawing() {
-  drawing = false;
-  ctx.closePath();
-}
-
-function draw(e) {
+function moveDraw(e) {
   if (!drawing) return;
-  if (e.type === 'touchmove') e.preventDefault();
-
-  const { x, y } = getXY(e);
-  
+  e.preventDefault();
+  const pos = getPos(e);
   ctx.lineWidth = 4;
   ctx.lineCap = "round";
-  ctx.lineJoin = "round"; // Issue Fix: Smoother line connections
+  ctx.lineJoin = "round";
   ctx.strokeStyle = "#333";
-
-  ctx.lineTo(x, y);
+  ctx.lineTo(pos.x, pos.y);
   ctx.stroke();
 }
 
-// Event Listeners
-canvas.addEventListener("mousedown", startDrawing);
-canvas.addEventListener("mouseup", stopDrawing);
-canvas.addEventListener("mousemove", draw);
+function stopDraw() {
+  drawing = false;
+}
 
-canvas.addEventListener("touchstart", startDrawing);
-canvas.addEventListener("touchend", stopDrawing);
-canvas.addEventListener("touchmove", draw);
+canvas.addEventListener("mousedown", startDraw);
+canvas.addEventListener("mousemove", moveDraw);
+canvas.addEventListener("mouseup", stopDraw);
 
-// CLEAR
+canvas.addEventListener("touchstart", startDraw);
+canvas.addEventListener("touchmove", moveDraw);
+canvas.addEventListener("touchend", stopDraw);
+
 window.clearCanvas = function () {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 };
