@@ -2,7 +2,7 @@ import { db } from "../firebase.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
-import * as WordMode from "./wordMode.js"; // Import word logic
+import * as WordMode from "./wordMode.js";
 
 let allData = [], filteredData = [], currentQ, score = 0;
 const sounds = {
@@ -11,13 +11,26 @@ const sounds = {
 };
 
 initCanvas();
-loadData(); // Pre-load from Firebase
 
-async function loadData() {
-    const snap = await getDocs(collection(db, "kanji"));
-    snap.forEach(doc => allData.push(doc.data()));
-    document.querySelector("button").innerText = "Start"; // Enable button
+// --- PRE-LOAD LOGIC ---
+async function preLoadData() {
+    try {
+        const snap = await getDocs(collection(db, "kanji"));
+        allData = [];
+        snap.forEach(doc => allData.push(doc.data()));
+        
+        const btn = document.getElementById("startBtn");
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Start Learning";
+            btn.style.background = "#4CAF50"; // Turns Green
+        }
+    } catch (e) {
+        console.error("Load failed", e);
+        document.getElementById("startBtn").innerText = "Load Error";
+    }
 }
+preLoadData();
 
 window.startApp = () => {
     const mode = document.getElementById("mode").value;
@@ -45,14 +58,13 @@ window.nextQuestion = () => {
         currentQ = WordMode.getNextWord(filteredData);
         WordMode.renderWordUI(currentQ);
     } else {
-        // Kanji Test/Practice Logic
-        currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         document.getElementById("canvas").style.display = "block";
         document.getElementById("test-input-area").style.display = "none";
+        currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         
         if (mode === "kanji_test") {
             document.getElementById("question").innerText = "？";
-            document.getElementById("meaning-display").innerHTML = `<b style='color:green'>${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            document.getElementById("meaning-display").innerHTML = `<b style="color:green">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             document.getElementById("question").innerText = currentQ.kanji;
             document.getElementById("meaning-display").innerText = currentQ.meaning_en;
@@ -62,10 +74,10 @@ window.nextQuestion = () => {
 
 window.checkAction = async () => {
     const mode = document.getElementById("mode").value;
-    const isTypingMode = document.getElementById("test-input-area").style.display !== "none";
+    const isTyping = document.getElementById("test-input-area").style.display !== "none";
     let result;
 
-    if (isTypingMode) {
+    if (isTyping) {
         const input = document.getElementById("answer-input").value;
         result = WordMode.checkWordAnswer(currentQ, input);
     } else {
@@ -74,29 +86,24 @@ window.checkAction = async () => {
         result = { isCorrect, scoreDelta: isCorrect ? 10 : -5 };
     }
 
-    processResult(result);
-};
-
-function processResult(res) {
     const resultEl = document.getElementById("result");
-    if (res.isCorrect) {
+    if (result.isCorrect) {
         resultEl.innerText = "✅ Correct!";
         resultEl.style.color = "green";
         sounds.correct.play();
-        score += res.scoreDelta;
+        score += result.scoreDelta;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resultEl.innerText = "❌ Wrong! Keep trying.";
+        resultEl.innerText = "❌ Try Again!";
         resultEl.style.color = "red";
         sounds.wrong.play();
-        if (score > 0) score += res.scoreDelta;
+        if (score > 0) score += result.scoreDelta;
     }
     document.getElementById("score").innerText = score;
-}
+};
 
 window.goBack = () => {
     document.getElementById("menu").style.display = "block";
     document.getElementById("app").style.display = "none";
 };
-
 window.clearCanvas = clearCanvas;
