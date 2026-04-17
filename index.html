@@ -14,7 +14,7 @@
     <select id="mode">
       <option value="kanji_practice">Kanji Practice</option>
       <option value="kanji_test">Kanji Test</option>
-      <option value="word_practice">Word Practice (Teach 5 then Test)</option>
+      <option value="word_practice">Word Practice (Study 5 then Test)</option>
       <option value="word_test">Word Test (Random Typing)</option>
     </select>
 
@@ -43,7 +43,7 @@
     <canvas id="canvas" width="300" height="400"></canvas>
     
     <div id="test-input-area" style="display:none; margin: 15px 0; background: #e8f5e9; padding: 15px; border-radius: 12px; border: 2px dashed #4CAF50;">
-      <p id="input-label" style="margin: 0 0 10px 0; color: #2e7d32; font-weight: bold;">Type the English meaning:</p>
+      <p style="margin: 0 0 10px 0; color: #2e7d32; font-weight: bold;">Type the English meaning:</p>
       <input type="text" id="answer-input" placeholder="Enter meaning..." style="width: 90%; padding: 12px; font-size: 1.1rem; border-radius: 8px; border: 1px solid #ccc;">
     </div>
 
@@ -53,10 +53,8 @@
     </div>
     
     <button id="nextBtn" onclick="nextQuestion()" style="display:none; background: #2196F3; color: white; margin-top: 10px; width: 100%;">Next →</button>
-    
     <p id="result" style="font-weight: bold; margin-top: 15px;"></p>
-    
-    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; color: white; width: 100%;">Back to Menu</button>
+    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; color: white; width: 100%;">Back</button>
   </div>
 
   <script type="module" src="app.js"></script>
