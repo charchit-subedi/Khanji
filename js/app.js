@@ -4,10 +4,6 @@ import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
 
 let allData = [], filteredData = [], currentQ, score = 0;
-let wordBatch = []; // Stores the 5 words currently being learned
-let batchIndex = 0;
-let isTestingPhase = false;
-
 const sounds = {
     correct: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
@@ -19,9 +15,6 @@ window.startApp = async () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     score = 0;
-    wordBatch = [];
-    batchIndex = 0;
-    isTestingPhase = false;
     document.getElementById("score").innerText = score;
     
     document.getElementById("menu").style.display = "none";
@@ -35,81 +28,67 @@ window.startApp = async () => {
 
 async function loadData() {
     if (allData.length > 0) return;
-    const snap = await getDocs(collection(db, "kanji")); // Assuming words are in the same collection
+    const snap = await getDocs(collection(db, "kanji"));
     snap.forEach(doc => allData.push(doc.data()));
 }
 
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
+    currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
+    
     const questionEl = document.getElementById("question");
     const meaningEl = document.getElementById("meaning-display");
-    const inputArea = document.getElementById("test-input-area");
 
-    if (mode === "word_practice") {
-        handleWordPracticeFlow(questionEl, meaningEl, inputArea);
+    if (mode === "kanji_test") {
+        // Test Mode: Hide Kanji, show Furigana and Meaning
+        questionEl.innerText = "？"; 
+        meaningEl.innerHTML = `
+            <div style="font-size: 1.6rem; color: #4CAF50; font-weight: bold; margin-bottom: 8px;">
+                ${currentQ.reading || ''}
+            </div>
+            <div style="font-size: 1.2rem; color: #555;">
+                ${currentQ.meaning_en}
+            </div>
+        `;
     } else {
-        // Standard Kanji Practice/Test Logic
-        inputArea.style.display = "none";
-        document.getElementById("canvas").style.display = "block";
-        currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-        // ... (previous Kanji logic)
+        // Practice Mode: Show everything including the Kanji
+        questionEl.innerText = currentQ.kanji;
+        meaningEl.innerHTML = `
+            <div style="font-size: 1.1rem; color: #888;">${currentQ.reading || ''}</div>
+            <div>${currentQ.meaning_en}</div>
+        `;
     }
+
+    document.getElementById("result").innerText = "";
+    document.getElementById("nextBtn").style.display = "none";
+    clearCanvas();
 };
 
-function handleWordPracticeFlow(questionEl, meaningEl, inputArea) {
-    if (!isTestingPhase) {
-        // --- LEARNING PHASE ---
-        if (wordBatch.length < 5) {
-            currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-            wordBatch.push(currentQ);
-        } else {
-            currentQ = wordBatch[batchIndex];
-        }
-
-        questionEl.innerText = currentQ.kanji;
-        meaningEl.innerHTML = `<div style="color: #4CAF50;">${currentQ.reading}</div><div>${currentQ.meaning_en}</div>`;
-        inputArea.style.display = "none";
-        document.getElementById("nextBtn").style.display = "block";
-        
-        batchIndex++;
-        if (batchIndex > 5) {
-            isTestingPhase = true;
-            batchIndex = 0;
-            document.getElementById("result").innerText = "Time to test! Write the English meanings.";
-        }
-    } else {
-        // --- TESTING PHASE ---
-        currentQ = wordBatch[batchIndex];
-        questionEl.innerText = currentQ.reading; // Show only Furigana
-        meaningEl.innerText = "What is the English meaning?";
-        inputArea.style.display = "block";
-        document.getElementById("answer-input").value = "";
-        document.getElementById("nextBtn").style.display = "none";
-        document.getElementById("canvas").style.display = "none"; // Hide canvas for text input
-    }
-}
-
-window.submitWordTest = () => {
-    const userAns = document.getElementById("answer-input").value.toLowerCase().trim();
+window.checkKanji = async () => {
+    const mode = document.getElementById("mode").value;
     const resultEl = document.getElementById("result");
+    resultEl.innerText = "Checking...";
 
-    if (userAns === currentQ.meaning_en.toLowerCase()) {
-        score += 10;
-        sounds.correct.play();
+    const candidates = await recognizeHandwriting(getInk());
+
+    if (candidates.slice(0, 3).includes(currentQ.kanji)) {
         resultEl.innerText = "✅ Correct!";
-        batchIndex++;
-        
-        if (batchIndex >= 5) {
-            resultEl.innerText = "Batch Complete! Next 5 words...";
-            wordBatch = [];
-            batchIndex = 0;
-            isTestingPhase = false;
-        }
-        window.nextQuestion();
+        resultEl.style.color = "green";
+        sounds.correct.play();
+        if (mode === "kanji_test") score += 10;
+        document.getElementById("nextBtn").style.display = "block";
     } else {
-        if (score > 0) score -= 5;
+        resultEl.innerText = "❌ Incorrect. Try again!";
+        resultEl.style.color = "red";
         sounds.wrong.play();
-        resultEl.innerText = `❌ Wrong. It was "${currentQ.meaning_en}"`;
+        if (mode === "kanji_test" && score > 0) score -= 5;
     }
     document.getElementById("score").innerText = score;
 };
+
+window.goBack = () => {
+    document.getElementById("menu").style.display = "block";
+    document.getElementById("app").style.display = "none";
+};
+
+window.clearCanvas = clearCanvas;
