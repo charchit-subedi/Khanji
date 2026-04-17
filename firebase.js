@@ -1,9 +1,6 @@
-// ===== IMPORT FIREBASE =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ===== YOUR FIREBASE CONFIG =====
-// 👉 Replace with YOUR actual config from Firebase console
 const firebaseConfig = {
   apiKey: "AIzaSyCTYa000tqEDgGt9W0LCxm2_A2fWS1Ph7Y",
   authDomain: "khanji-e7b25.firebaseapp.com",
@@ -14,11 +11,7 @@ const firebaseConfig = {
   measurementId: "G-H87CWX8Y9L"
 };
 
-// ===== INITIALIZE FIREBASE =====
 const app = initializeApp(firebaseConfig);
-
-// ===== FIRESTORE DATABASE =====
 const db = getFirestore(app);
 
-// ===== EXPORT =====
 export { db };
