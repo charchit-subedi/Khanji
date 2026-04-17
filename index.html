@@ -6,13 +6,10 @@
   <title>JLPT Practice</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<!-- MENU -->
 <div id="menu" class="container">
   <h1>JLPT Practice</h1>
-
   <h3>Select Mode</h3>
   <select id="mode">
     <option value="kanji_practice">Kanji Practice</option>
@@ -33,25 +30,25 @@
   <button onclick="startApp()">Start</button>
 </div>
 
-<!-- APP -->
 <div id="app" class="container" style="display:none;">
   <h2 id="modeTitle"></h2>
 
   <div id="question-box">
-    <h2 id="question">---</h2>
+    <h1 id="question">---</h1>
+    <div id="arrow">↓</div>
+    <h3 id="meaning-display">Meaning</h3>
   </div>
 
-  <canvas id="canvas" width="300" height="300"></canvas>
-  <button onclick="clearCanvas()">Clear</button>
-
-  <input type="text" id="answer" placeholder="Enter meaning">
-
-  <button onclick="checkAnswer()">Check</button>
-  <button onclick="nextQuestion()">Next</button>
+  <canvas id="canvas" width="300" height="400"></canvas>
+  
+  <button onclick="clearCanvas()" class="btn-clear">Clear</button>
+  <button onclick="checkKanji()" class="btn-check">Check</button>
+  
+  <button id="nextBtn" onclick="nextQuestion()" style="display:none;" class="btn-next">Next</button>
 
   <p id="result"></p>
 
-  <button onclick="goBack()">Back</button>
+  <button onclick="goBack()" class="btn-back">Back</button>
 </div>
 
 <script type="module" src="firebase.js"></script>
