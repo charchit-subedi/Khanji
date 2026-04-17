@@ -1,0 +1,42 @@
+body {
+  font-family: Arial;
+  background: #f4f6f8;
+  text-align: center;
+}
+
+.container {
+  max-width: 400px;
+  margin: auto;
+  padding: 20px;
+}
+
+select, input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 10px;
+}
+
+button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+}
+
+button:last-child {
+  background: red;
+}
+
+#question-box {
+  background: white;
+  padding: 20px;
+  margin: 15px 0;
+  border-radius: 10px;
+}
+
+canvas {
+  background: white;
+  border: 2px dashed #ccc;
+  margin-top: 10px;
+  touch-action: none;
+}
