@@ -2,6 +2,7 @@ import { db } from "../firebase.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
+import * as WordMode from "./wordMode.js"; // Import the new logic
 
 let allData = [], filteredData = [], currentQ, score = 0;
 const sounds = {
@@ -9,37 +10,14 @@ const sounds = {
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
 };
 
-// Initialize Canvas immediately
 initCanvas();
-
-// FIX: Start loading data from Firebase as soon as the script runs
-async function preLoadData() {
-    try {
-        const snap = await getDocs(collection(db, "kanji"));
-        snap.forEach(doc => allData.push(doc.data()));
-        
-        // Data is ready - enable the start button
-        const btn = document.getElementById("startBtn");
-        btn.disabled = false;
-        btn.innerText = "Start Learning";
-        btn.style.background = "#4CAF50";
-        console.log("Firebase data pre-loaded.");
-    } catch (e) {
-        console.error("Data load failed:", e);
-        document.getElementById("startBtn").innerText = "Load Error (Check Connection)";
-    }
-}
-preLoadData();
+preLoadData(); // Use the fast loading logic we made earlier
 
 window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
-    filteredData = allData.filter(x => x.level === level);
-    if (filteredData.length === 0) {
-        alert("No data found for this level!");
-        return;
-    }
+    if (mode.includes("word")) WordMode.initWordMode();
 
     score = 0;
     document.getElementById("score").innerText = score;
@@ -47,55 +25,66 @@ window.startApp = () => {
     document.getElementById("app").style.display = "block";
     document.getElementById("modeTitle").innerText = mode.toUpperCase();
     
+    filteredData = allData.filter(x => x.level === level);
     window.nextQuestion();
 };
 
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
-    currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-    
-    const questionEl = document.getElementById("question");
-    const meaningEl = document.getElementById("meaning-display");
-
-    // Reset UI
+    clearCanvas();
     document.getElementById("result").innerText = "";
     document.getElementById("nextBtn").style.display = "none";
-    clearCanvas();
 
-    if (mode === "kanji_test") {
-        questionEl.innerText = "？";
-        meaningEl.innerHTML = `<b style="color:green;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+    if (mode === "word_practice") {
+        currentQ = WordMode.getNextWord(filteredData);
+        WordMode.renderWordUI(currentQ);
     } else {
-        questionEl.innerText = currentQ.kanji;
-        meaningEl.innerText = currentQ.meaning_en;
+        // Standard Kanji Logic (Practice/Test)
+        document.getElementById("test-input-area").style.display = "none";
+        document.getElementById("canvas").style.display = "block";
+        currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
+        
+        if (mode === "kanji_test") {
+            document.getElementById("question").innerText = "？";
+            document.getElementById("meaning-display").innerHTML = `<b>${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+        } else {
+            document.getElementById("question").innerText = currentQ.kanji;
+            document.getElementById("meaning-display").innerText = currentQ.meaning_en;
+        }
     }
 };
 
 window.checkAction = async () => {
     const mode = document.getElementById("mode").value;
+    let result;
+
+    if (mode === "word_practice" && document.getElementById("test-input-area").style.display !== "none") {
+        // Word Test Phase
+        const input = document.getElementById("answer-input").value;
+        result = WordMode.checkWordAnswer(currentQ, input);
+    } else {
+        // Handwriting OCR Phase (Kanji modes or Word Practice Learning)
+        const candidates = await recognizeHandwriting(getInk());
+        const isCorrect = candidates.slice(0, 3).includes(currentQ.kanji);
+        result = { isCorrect, scoreDelta: isCorrect ? 10 : -5 };
+    }
+
+    applyResult(result);
+};
+
+function applyResult(result) {
     const resultEl = document.getElementById("result");
-    resultEl.innerText = "Checking...";
-
-    const candidates = await recognizeHandwriting(getInk());
-
-    if (candidates.slice(0, 3).includes(currentQ.kanji)) {
+    if (result.isCorrect) {
         resultEl.innerText = "✅ Correct!";
         resultEl.style.color = "green";
         sounds.correct.play();
-        if (mode.includes("test")) score += 10;
+        score += result.scoreDelta;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resultEl.innerText = "❌ Incorrect. Try again!";
+        resultEl.innerText = "❌ Try Again!";
         resultEl.style.color = "red";
         sounds.wrong.play();
-        if (mode.includes("test") && score > 0) score -= 5;
+        if (score > 0) score += result.scoreDelta;
     }
     document.getElementById("score").innerText = score;
-};
-
-window.goBack = () => {
-    document.getElementById("menu").style.display = "block";
-    document.getElementById("app").style.display = "none";
-};
-
-window.clearCanvas = clearCanvas;
+}
