@@ -19,17 +19,17 @@ let wordBatch = [], batchIndex = 0, isTestingPhase = false;
 
 initCanvas();
 
-// --- AUTH ATTACHMENTS ---
-window.loginWithGoogle = () => signInWithPopup(auth, googleProvider).catch(e => alert(e.message));
+// --- AUTH (Attached to Window for HTML access) ---
+window.loginWithGoogle = () => signInWithPopup(auth, googleProvider).catch(e => alert("Google Error: " + e.message));
 window.handleEmailSignup = () => {
     const e = document.getElementById("auth-email").value;
     const p = document.getElementById("auth-password").value;
-    createUserWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
+    createUserWithEmailAndPassword(auth, e, p).catch(err => alert("Signup Error: " + err.message));
 };
 window.handleEmailLogin = () => {
     const e = document.getElementById("auth-email").value;
     const p = document.getElementById("auth-password").value;
-    signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
+    signInWithEmailAndPassword(auth, e, p).catch(err => alert("Login Error: " + err.message));
 };
 
 onAuthStateChanged(auth, async (user) => {
@@ -56,7 +56,7 @@ async function preLoadData() {
         snap.forEach(d => allData.push(d.data()));
         const btn = document.getElementById("startBtn");
         btn.disabled = false; btn.innerText = "Start Learning"; btn.style.background = "#4CAF50";
-    } catch (err) { console.error(err); }
+    } catch (err) { alert("Data Load Error: " + err.message); }
 }
 
 function updateUI() {
@@ -64,7 +64,6 @@ function updateUI() {
     document.getElementById("user-info").innerText = `${currentUser.displayName || currentUser.email} | Points: ${score}`;
 }
 
-// --- CORE GAMEPLAY ---
 window.startApp = () => {
     wordBatch = []; batchIndex = 0; isTestingPhase = false;
     document.getElementById("menu").style.display = "none";
@@ -103,67 +102,69 @@ window.nextQuestion = () => {
             document.getElementById("meaning-display").innerText = "Type English meaning:";
             document.getElementById("answer-input").value = "";
         }
-    } else if (mode === "word_test") {
-        canvas.style.display = "none"; inputArea.style.display = "block";
-        currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-        document.getElementById("question").innerText = currentQ.reading;
-        document.getElementById("meaning-display").innerText = "Type meaning:";
-        document.getElementById("answer-input").value = "";
     } else {
-        canvas.style.display = "block"; inputArea.style.display = "none";
+        canvas.style.display = mode.includes("word") ? "none" : "block";
+        inputArea.style.display = mode.includes("word") ? "block" : "none";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-        document.getElementById("question").innerText = mode === "kanji_test" ? "？" : currentQ.kanji;
+        document.getElementById("question").innerText = mode === "kanji_test" ? "？" : (currentQ.kanji || currentQ.reading);
         document.getElementById("meaning-display").innerText = mode === "kanji_test" ? currentQ.reading : currentQ.meaning_en;
     }
 };
 
-// --- THE FEEDBACK FIX ---
-function displayFeedback(msg, isCorrect) {
-    const resEl = document.getElementById("result");
-    resEl.innerText = msg;
-    resEl.style.color = isCorrect ? "#2e7d32" : "#d32f2f";
-    resEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
+// --- CRITICAL FEEDBACK SYSTEM ---
 window.checkAction = async () => {
+    const resEl = document.getElementById("result");
     const mode = document.getElementById("mode").value;
     const isTyping = document.getElementById("test-input-area").style.display === "block";
+    
+    resEl.innerText = "Checking...";
+    resEl.style.color = "black";
+
     let correct = false;
 
-    displayFeedback("Checking...", true);
-
-    if (isTyping) {
-        const userVal = document.getElementById("answer-input").value.toLowerCase().trim();
-        const correctVal = currentQ.meaning_en.toLowerCase().trim();
-        correct = (userVal === correctVal);
-        
-        if (correct && mode === "word_practice") {
-            batchIndex++;
-            if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
+    try {
+        if (isTyping) {
+            const userIn = document.getElementById("answer-input").value.toLowerCase().trim();
+            const actual = currentQ.meaning_en.toLowerCase().trim();
+            correct = (userIn === actual);
+            
+            if (correct && mode === "word_practice") {
+                batchIndex++;
+                if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
+            }
+        } else {
+            const ink = getInk();
+            const candidates = await recognizeHandwriting(ink);
+            correct = candidates.slice(0, 3).includes(currentQ.kanji);
         }
-    } else {
-        const candidates = await recognizeHandwriting(getInk());
-        correct = candidates.slice(0, 3).includes(currentQ.kanji);
-    }
 
-    if (correct) {
-        score += 10;
-        displayFeedback("✅ Correct! +10 Points", true);
-        document.getElementById("nextBtn").style.display = "block";
-    } else {
-        if (score >= 5) score -= 5;
-        displayFeedback("❌ Incorrect. Try again!", false);
-    }
+        if (correct) {
+            score += 10;
+            resEl.innerText = "✅ CORRECT! +10 Points";
+            resEl.style.color = "green";
+            document.getElementById("nextBtn").style.display = "block";
+            // Emergency Alert if UI fails
+            console.log("Correct Answer");
+        } else {
+            if (score >= 5) score -= 5;
+            resEl.innerText = "❌ INCORRECT! Try Again";
+            resEl.style.color = "red";
+        }
 
-    updateUI();
-    updateDoc(doc(db, "users", currentUser.uid), { points: score });
+        updateUI();
+        await updateDoc(doc(db, "users", currentUser.uid), { points: score });
+
+    } catch (e) {
+        alert("Check Logic Error: " + e.message);
+    }
 };
 
 window.showAdminLogin = () => document.getElementById("admin-modal").style.display = "block";
 window.verifyAdmin = async () => {
     if (document.getElementById("admin-pass").value === "admin123") {
         await updateDoc(doc(db, "users", currentUser.uid), { isAdmin: true });
-        alert("Admin Active"); document.getElementById("admin-modal").style.display = "none";
+        alert("Admin Access Granted"); 
+        document.getElementById("admin-modal").style.display = "none";
     }
 };
 window.goBack = () => { document.getElementById("menu").style.display = "block"; document.getElementById("app").style.display = "none"; };
