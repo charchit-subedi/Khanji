@@ -19,7 +19,7 @@ let wordBatch = [], batchIndex = 0, isTestingPhase = false;
 
 initCanvas();
 
-// --- ATTACH TO WINDOW FOR HTML ACCESS ---
+// --- AUTH ATTACHMENTS ---
 window.loginWithGoogle = () => signInWithPopup(auth, googleProvider).catch(e => alert(e.message));
 window.handleEmailSignup = () => {
     const e = document.getElementById("auth-email").value;
@@ -64,6 +64,7 @@ function updateUI() {
     document.getElementById("user-info").innerText = `${currentUser.displayName || currentUser.email} | Points: ${score}`;
 }
 
+// --- CORE GAMEPLAY ---
 window.startApp = () => {
     wordBatch = []; batchIndex = 0; isTestingPhase = false;
     document.getElementById("menu").style.display = "none";
@@ -107,6 +108,7 @@ window.nextQuestion = () => {
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         document.getElementById("question").innerText = currentQ.reading;
         document.getElementById("meaning-display").innerText = "Type meaning:";
+        document.getElementById("answer-input").value = "";
     } else {
         canvas.style.display = "block"; inputArea.style.display = "none";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
@@ -115,21 +117,44 @@ window.nextQuestion = () => {
     }
 };
 
+// --- THE FEEDBACK FIX ---
+function displayFeedback(msg, isCorrect) {
+    const resEl = document.getElementById("result");
+    resEl.innerText = msg;
+    resEl.style.color = isCorrect ? "#2e7d32" : "#d32f2f";
+    resEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 window.checkAction = async () => {
+    const mode = document.getElementById("mode").value;
     const isTyping = document.getElementById("test-input-area").style.display === "block";
     let correct = false;
+
+    displayFeedback("Checking...", true);
+
     if (isTyping) {
-        correct = (document.getElementById("answer-input").value.toLowerCase().trim() === currentQ.meaning_en.toLowerCase().trim());
-        if (correct && document.getElementById("mode").value === "word_practice") {
+        const userVal = document.getElementById("answer-input").value.toLowerCase().trim();
+        const correctVal = currentQ.meaning_en.toLowerCase().trim();
+        correct = (userVal === correctVal);
+        
+        if (correct && mode === "word_practice") {
             batchIndex++;
             if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
         }
     } else {
-        const ink = await recognizeHandwriting(getInk());
-        correct = ink.slice(0, 3).includes(currentQ.kanji);
+        const candidates = await recognizeHandwriting(getInk());
+        correct = candidates.slice(0, 3).includes(currentQ.kanji);
     }
-    if (correct) { score += 10; document.getElementById("nextBtn").style.display = "block"; }
-    else { if (score >= 5) score -= 5; }
+
+    if (correct) {
+        score += 10;
+        displayFeedback("✅ Correct! +10 Points", true);
+        document.getElementById("nextBtn").style.display = "block";
+    } else {
+        if (score >= 5) score -= 5;
+        displayFeedback("❌ Incorrect. Try again!", false);
+    }
+
     updateUI();
     updateDoc(doc(db, "users", currentUser.uid), { points: score });
 };
