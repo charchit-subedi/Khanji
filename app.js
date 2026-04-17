@@ -25,6 +25,7 @@ window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
+    // Reset Batch Logic
     wordBatch = []; batchIndex = 0; isTestingPhase = false;
     score = 0;
     document.getElementById("score").innerText = score;
@@ -41,7 +42,6 @@ window.nextQuestion = () => {
     const canvas = document.getElementById("canvas");
     const inputArea = document.getElementById("test-input-area");
     const checkBtn = document.getElementById("checkBtn");
-    const clearBtn = document.getElementById("clearBtn");
     const qBox = document.getElementById("question");
     const mBox = document.getElementById("meaning-display");
 
@@ -51,12 +51,11 @@ window.nextQuestion = () => {
 
     if (mode === "word_practice") {
         if (!isTestingPhase) {
-            // --- TEACHING PHASE (First 5 questions) ---
+            // PHASE 1: TEACHING (Show first 5 words)
             canvas.style.display = "none";
             inputArea.style.display = "none";
             checkBtn.style.display = "none";
-            clearBtn.style.display = "none";
-            document.getElementById("nextBtn").style.display = "block"; // Study mode, just click next
+            document.getElementById("nextBtn").style.display = "block";
 
             if (wordBatch.length < 5) {
                 currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
@@ -69,39 +68,33 @@ window.nextQuestion = () => {
             qBox.innerText = currentQ.kanji;
             mBox.innerHTML = `<b style="color:#4CAF50; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
-            // --- TESTING PHASE (Next 5 questions - Typing) ---
+            // PHASE 2: TESTING (Type meaning for those 5 words)
             canvas.style.display = "none";
             inputArea.style.display = "block";
             checkBtn.style.display = "block";
-            clearBtn.style.display = "none";
-            
             currentQ = wordBatch[batchIndex];
             qBox.innerText = currentQ.reading;
-            mBox.innerText = "What is the English meaning?";
+            mBox.innerText = "Type the English meaning:";
             document.getElementById("answer-input").value = "";
         }
     } 
     else if (mode === "word_test") {
-        // --- RANDOM TYPING MODE ---
         canvas.style.display = "none";
         inputArea.style.display = "block";
         checkBtn.style.display = "block";
-        clearBtn.style.display = "none";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         qBox.innerText = currentQ.reading;
         mBox.innerText = "Type the English meaning";
         document.getElementById("answer-input").value = "";
-    } 
-    else {
-        // --- KANJI MODES (Drawing) ---
+    } else {
+        // KANJI DRAWING MODES
         canvas.style.display = "block";
         inputArea.style.display = "none";
         checkBtn.style.display = "block";
-        clearBtn.style.display = "block";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         if (mode === "kanji_test") {
             qBox.innerText = "？";
-            mBox.innerHTML = `<b style="color:green; font-size:1.4rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            mBox.innerHTML = `<b style="color:green; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             qBox.innerText = currentQ.kanji;
             mBox.innerText = currentQ.meaning_en;
@@ -133,7 +126,7 @@ window.checkAction = async () => {
         score += 10;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resEl.innerText = "❌ Incorrect. Try again!";
+        resEl.innerText = "❌ Try Again!";
         resEl.style.color = "red";
         if (score > 0) score -= 5;
     }
