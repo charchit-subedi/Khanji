@@ -14,7 +14,8 @@
     <select id="mode">
       <option value="kanji_practice">Kanji Practice</option>
       <option value="kanji_test">Kanji Test</option>
-      <option value="word_practice">Word Practice</option>
+      <option value="word_practice">Word Practice (Batch)</option>
+      <option value="word_test">Word Test (Random)</option>
     </select>
 
     <h3>Select Level</h3>
@@ -24,7 +25,7 @@
       <option value="N3">N3</option>
     </select>
     
-    <button id="startBtn" onclick="startApp()" style="background: #ffa500; color: white;" disabled>Connecting to Database...</button>
+    <button id="startBtn" onclick="startApp()" style="background: #ffa500; color: white;" disabled>Connecting...</button>
   </div>
 
   <div id="app" class="container" style="display:none;">
@@ -42,7 +43,7 @@
     <canvas id="canvas" width="300" height="400"></canvas>
     
     <div id="test-input-area" style="display:none; margin: 15px 0; background: #e8f5e9; padding: 15px; border-radius: 12px; border: 2px dashed #4CAF50;">
-      <input type="text" id="answer-input" placeholder="Type English meaning..." style="width: 90%; padding: 12px; font-size: 1.1rem; border-radius: 8px; border: 1px solid #ccc;">
+      <input type="text" id="answer-input" placeholder="Meaning in English...">
     </div>
 
     <div style="display: flex; gap: 10px; margin-top: 15px;">
@@ -52,7 +53,7 @@
     
     <button id="nextBtn" onclick="nextQuestion()" style="display:none; background: #2196F3; color: white;">Next →</button>
     <p id="result" style="font-weight: bold; margin-top: 15px;"></p>
-    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; color: white;">Back to Menu</button>
+    <button onclick="goBack()" style="background: #f44336; margin-top: 20px; color: white;">Back</button>
   </div>
 
   <script type="module" src="app.js"></script>
