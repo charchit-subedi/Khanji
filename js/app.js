@@ -1,94 +1,56 @@
 import { db } from "../firebase.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { initCanvas, getInk, clearCanvas } from "./canvas.js";
-import { recognizeHandwriting } from "./ocr.js";
+import { clearCanvas } from "./canvas.js";
+import * as KanjiMode from "./kanjiMode.js";
+import * as WordMode from "./wordMode.js";
 
 let allData = [], filteredData = [], currentQ, score = 0;
-const sounds = {
-    correct: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
-    wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
-};
-
-initCanvas();
+const sounds = { correct: new Audio('...'), wrong: new Audio('...') };
 
 window.startApp = async () => {
     const mode = document.getElementById("mode").value;
-    const level = document.getElementById("level").value;
-    score = 0;
-    document.getElementById("score").innerText = score;
+    if (mode.includes("word")) WordMode.initWordMode();
     
-    document.getElementById("menu").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    document.getElementById("modeTitle").innerText = mode.replace("_", " ").toUpperCase();
-    
+    // UI Logic and Firebase Loading...
     await loadData();
-    filteredData = allData.filter(x => x.level === level);
+    filteredData = allData.filter(x => x.level === document.getElementById("level").value);
     window.nextQuestion();
 };
 
-async function loadData() {
-    if (allData.length > 0) return;
-    const snap = await getDocs(collection(db, "kanji"));
-    snap.forEach(doc => allData.push(doc.data()));
-}
-
 window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
-    currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-    
-    const questionEl = document.getElementById("question");
-    const meaningEl = document.getElementById("meaning-display");
-
-    if (mode === "kanji_test") {
-        // Test Mode: Hide Kanji, show Furigana and Meaning
-        questionEl.innerText = "？"; 
-        meaningEl.innerHTML = `
-            <div style="font-size: 1.6rem; color: #4CAF50; font-weight: bold; margin-bottom: 8px;">
-                ${currentQ.reading || ''}
-            </div>
-            <div style="font-size: 1.2rem; color: #555;">
-                ${currentQ.meaning_en}
-            </div>
-        `;
-    } else {
-        // Practice Mode: Show everything including the Kanji
-        questionEl.innerText = currentQ.kanji;
-        meaningEl.innerHTML = `
-            <div style="font-size: 1.1rem; color: #888;">${currentQ.reading || ''}</div>
-            <div>${currentQ.meaning_en}</div>
-        `;
-    }
-
-    document.getElementById("result").innerText = "";
-    document.getElementById("nextBtn").style.display = "none";
     clearCanvas();
+    
+    if (mode.includes("word")) {
+        currentQ = WordMode.getNextWord(filteredData);
+        WordMode.renderWordUI(currentQ);
+    } else {
+        currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
+        KanjiMode.renderKanjiQuestion(currentQ, mode);
+    }
 };
 
-window.checkKanji = async () => {
+window.checkAction = async () => {
     const mode = document.getElementById("mode").value;
-    const resultEl = document.getElementById("result");
-    resultEl.innerText = "Checking...";
+    let result;
 
-    const candidates = await recognizeHandwriting(getInk());
+    if (mode.includes("word")) {
+        const input = document.getElementById("answer-input").value;
+        result = WordMode.checkWordAnswer(currentQ, input);
+    } else {
+        result = await KanjiMode.handleKanjiCheck(currentQ, mode);
+    }
 
-    if (candidates.slice(0, 3).includes(currentQ.kanji)) {
-        resultEl.innerText = "✅ Correct!";
-        resultEl.style.color = "green";
+    updateGameState(result);
+};
+
+function updateGameState(result) {
+    score += result.scoreDelta;
+    document.getElementById("score").innerText = score;
+    if (result.isCorrect) {
         sounds.correct.play();
-        if (mode === "kanji_test") score += 10;
         document.getElementById("nextBtn").style.display = "block";
     } else {
-        resultEl.innerText = "❌ Incorrect. Try again!";
-        resultEl.style.color = "red";
         sounds.wrong.play();
-        if (mode === "kanji_test" && score > 0) score -= 5;
     }
-    document.getElementById("score").innerText = score;
-};
-
-window.goBack = () => {
-    document.getElementById("menu").style.display = "block";
-    document.getElementById("app").style.display = "none";
-};
-
-window.clearCanvas = clearCanvas;
+}
