@@ -1,6 +1,7 @@
 import { db } from "./firebase.js";
 import { 
-    getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged 
+    getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { 
     doc, getDoc, setDoc, updateDoc, collection, getDocs 
@@ -9,17 +10,33 @@ import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
 
 const auth = getAuth();
-const provider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider();
 
 let currentUser = null;
-let allData = [], filteredData = [], currentQ, score = 0;
+let score = 0;
+let allData = [], filteredData = [], currentQ;
 let wordBatch = [], batchIndex = 0, isTestingPhase = false;
 
 initCanvas();
 
-// --- AUTHENTICATION & INITIALIZATION ---
-window.login = () => {
-    signInWithPopup(auth, provider).catch(err => alert("Login failed: " + err.message));
+// --- AUTHENTICATION FUNCTIONS ---
+
+window.loginWithGoogle = () => {
+    signInWithPopup(auth, googleProvider).catch(err => alert("Google Error: " + err.message));
+};
+
+window.handleEmailSignup = () => {
+    const email = document.getElementById("auth-email").value;
+    const pass = document.getElementById("auth-password").value;
+    createUserWithEmailAndPassword(auth, email, pass)
+        .catch(err => alert("Signup Error: " + err.message));
+};
+
+window.handleEmailLogin = () => {
+    const email = document.getElementById("auth-email").value;
+    const pass = document.getElementById("auth-password").value;
+    signInWithEmailAndPassword(auth, email, pass)
+        .catch(err => alert("Login Error: " + err.message));
 };
 
 onAuthStateChanged(auth, async (user) => {
@@ -29,59 +46,54 @@ onAuthStateChanged(auth, async (user) => {
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-            // NEW USER: Give 100 points
-            score = 100;
+            score = 100; // Gift for new user
             await setDoc(userRef, {
-                name: user.displayName,
+                name: user.displayName || user.email.split('@')[0],
                 email: user.email,
                 points: score,
                 isAdmin: false
             });
         } else {
-            // EXISTING USER: Load points
             score = userSnap.data().points || 0;
         }
 
         document.getElementById("auth-overlay").style.display = "none";
-        updateUI();
+        updatePointsUI();
         preLoadData();
     }
 });
 
+// --- CORE APP LOGIC ---
+
 async function preLoadData() {
-    try {
-        const snap = await getDocs(collection(db, "kanji"));
-        allData = [];
-        snap.forEach(doc => allData.push(doc.data()));
-        const btn = document.getElementById("startBtn");
-        btn.disabled = false;
-        btn.innerText = "Start Learning";
-        btn.style.background = "#4CAF50";
-    } catch (e) { console.error("Firebase Error:", e); }
+    const snap = await getDocs(collection(db, "kanji"));
+    allData = [];
+    snap.forEach(doc => allData.push(doc.data()));
+    const btn = document.getElementById("startBtn");
+    btn.disabled = false;
+    btn.innerText = "Start Learning";
+    btn.style.background = "#4CAF50";
 }
 
-function updateUI() {
+function updatePointsUI() {
+    const name = currentUser.displayName || currentUser.email;
     document.getElementById("score").innerText = score;
-    document.getElementById("user-info").innerText = `User: ${currentUser.displayName} | Points: ${score}`;
+    document.getElementById("user-info").innerText = `${name} | Points: ${score}`;
 }
 
-async function savePoints() {
+async function saveScore() {
     if (currentUser) {
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, { points: score });
+        await updateDoc(doc(db, "users", currentUser.uid), { points: score });
     }
 }
 
-// --- APP NAVIGATION ---
 window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
-    
     wordBatch = []; batchIndex = 0; isTestingPhase = false;
     document.getElementById("menu").style.display = "none";
     document.getElementById("app").style.display = "block";
-    document.getElementById("modeTitle").innerText = mode.toUpperCase().replace("_", " ");
-    
+    document.getElementById("modeTitle").innerText = mode.toUpperCase();
     filteredData = allData.filter(x => x.level === level);
     window.nextQuestion();
 };
@@ -90,7 +102,6 @@ window.nextQuestion = () => {
     const mode = document.getElementById("mode").value;
     const canvas = document.getElementById("canvas");
     const inputArea = document.getElementById("test-input-area");
-    const checkBtn = document.getElementById("checkBtn");
     const qBox = document.getElementById("question");
     const mBox = document.getElementById("meaning-display");
 
@@ -100,101 +111,59 @@ window.nextQuestion = () => {
 
     if (mode === "word_practice") {
         if (!isTestingPhase) {
-            // TEACHING PHASE
-            canvas.style.display = "none";
-            inputArea.style.display = "none";
-            checkBtn.style.display = "none";
+            canvas.style.display = "none"; inputArea.style.display = "none";
+            document.getElementById("checkBtn").style.display = "none";
             document.getElementById("nextBtn").style.display = "block";
-
             if (wordBatch.length < 5) {
                 currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
                 wordBatch.push(currentQ);
             } else {
-                currentQ = wordBatch[batchIndex];
-                batchIndex++;
+                currentQ = wordBatch[batchIndex++];
                 if (batchIndex >= 5) { isTestingPhase = true; batchIndex = 0; }
             }
             qBox.innerText = currentQ.kanji;
-            mBox.innerHTML = `<b style="color:#4CAF50; font-size:1.5rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            mBox.innerHTML = `<b>${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
-            // TESTING PHASE (Typing)
-            canvas.style.display = "none";
-            inputArea.style.display = "block";
-            checkBtn.style.display = "block";
+            canvas.style.display = "none"; inputArea.style.display = "block";
+            document.getElementById("checkBtn").style.display = "block";
             currentQ = wordBatch[batchIndex];
             qBox.innerText = currentQ.reading;
-            mBox.innerText = "What is the English meaning?";
+            mBox.innerText = "Type English meaning:";
             document.getElementById("answer-input").value = "";
         }
     } else if (mode === "word_test") {
-        canvas.style.display = "none";
-        inputArea.style.display = "block";
-        checkBtn.style.display = "block";
+        canvas.style.display = "none"; inputArea.style.display = "block";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
         qBox.innerText = currentQ.reading;
-        mBox.innerText = "Type the English meaning";
+        mBox.innerText = "Type meaning:";
         document.getElementById("answer-input").value = "";
     } else {
-        // KANJI DRAWING
-        canvas.style.display = "block";
-        inputArea.style.display = "none";
-        checkBtn.style.display = "block";
+        canvas.style.display = "block"; inputArea.style.display = "none";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-        if (mode === "kanji_test") {
-            qBox.innerText = "？";
-            mBox.innerHTML = `<b style="color:green; font-size:1.3rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
-        } else {
-            qBox.innerText = currentQ.kanji;
-            mBox.innerText = currentQ.meaning_en;
-        }
+        qBox.innerText = mode === "kanji_test" ? "？" : currentQ.kanji;
+        mBox.innerText = mode === "kanji_test" ? currentQ.reading : currentQ.meaning_en;
     }
 };
 
 window.checkAction = async () => {
     const isTyping = document.getElementById("test-input-area").style.display === "block";
-    let isCorrect = false;
-
+    let correct = false;
     if (isTyping) {
-        const val = document.getElementById("answer-input").value.toLowerCase().trim();
-        isCorrect = (val === currentQ.meaning_en.toLowerCase().trim());
-        if (isCorrect && document.getElementById("mode").value === "word_practice") {
+        correct = (document.getElementById("answer-input").value.toLowerCase().trim() === currentQ.meaning_en.toLowerCase().trim());
+        if (correct && document.getElementById("mode").value === "word_practice") {
             batchIndex++;
             if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
         }
     } else {
-        const candidates = await recognizeHandwriting(getInk());
-        isCorrect = candidates.slice(0, 3).includes(currentQ.kanji);
+        const ink = await recognizeHandwriting(getInk());
+        correct = ink.slice(0, 3).includes(currentQ.kanji);
     }
 
-    const resEl = document.getElementById("result");
-    if (isCorrect) {
-        resEl.innerText = "✅ Correct!";
-        resEl.style.color = "green";
-        score += 10;
-        document.getElementById("nextBtn").style.display = "block";
-    } else {
-        resEl.innerText = "❌ Incorrect. Try again!";
-        resEl.style.color = "red";
-        if (score >= 5) score -= 5;
-    }
-    updateUI();
-    savePoints();
+    if (correct) { score += 10; document.getElementById("nextBtn").style.display = "block"; } 
+    else { if (score >= 5) score -= 5; }
+    updatePointsUI();
+    saveScore();
 };
 
-// --- ADMIN SYSTEM ---
-window.showAdminLogin = () => { document.getElementById("admin-modal").style.display = "block"; };
-window.verifyAdmin = async () => {
-    const pass = document.getElementById("admin-pass").value;
-    if (pass === "admin123") { // REPLACE THIS
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, { isAdmin: true });
-        alert("Admin Permissions Active.");
-        document.getElementById("admin-modal").style.display = "none";
-    } else { alert("Wrong Password"); }
-};
-
-window.goBack = () => {
-    document.getElementById("menu").style.display = "block";
-    document.getElementById("app").style.display = "none";
-};
+window.goBack = () => { document.getElementById("menu").style.display = "block"; document.getElementById("app").style.display = "none"; };
 window.clearCanvas = clearCanvas;
