@@ -3,7 +3,6 @@ import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/
 import { initCanvas, getInk, clearCanvas } from "./canvas.js";
 import { recognizeHandwriting } from "./ocr.js";
 
-// App Variables
 let allData = [], filteredData = [], currentQ, score = 0;
 let wordBatch = [], batchIndex = 0, isTestingPhase = false;
 
@@ -12,7 +11,6 @@ const sounds = {
     wrong: new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3')
 };
 
-// Initialize Canvas & Start Loading Data
 initCanvas();
 preLoadData();
 
@@ -21,16 +19,14 @@ async function preLoadData() {
         const snap = await getDocs(collection(db, "kanji"));
         allData = [];
         snap.forEach(doc => allData.push(doc.data()));
-        
         const btn = document.getElementById("startBtn");
         if (btn) {
             btn.disabled = false;
             btn.innerText = "Start Learning";
-            btn.style.background = "#4CAF50"; // Turn Green when ready
+            btn.style.background = "#4CAF50";
         }
     } catch (e) {
-        console.error("Firebase Error:", e);
-        document.getElementById("startBtn").innerText = "Connection Error";
+        document.getElementById("startBtn").innerText = "Error Loading Data";
     }
 }
 
@@ -38,11 +34,8 @@ window.startApp = () => {
     const mode = document.getElementById("mode").value;
     const level = document.getElementById("level").value;
     
-    // Reset Word Cycle
-    wordBatch = [];
-    batchIndex = 0;
-    isTestingPhase = false;
-
+    // Reset Logic
+    wordBatch = []; batchIndex = 0; isTestingPhase = false;
     score = 0;
     document.getElementById("score").innerText = score;
     document.getElementById("menu").style.display = "none";
@@ -65,16 +58,17 @@ window.nextQuestion = () => {
     document.getElementById("nextBtn").style.display = "none";
 
     if (mode === "word_practice") {
-        handleWordCycle(qBox, mBox, inputArea, canvasArea);
+        handleWordPractice(qBox, mBox, inputArea, canvasArea);
+    } else if (mode === "word_test") {
+        handleWordTest(qBox, mBox, inputArea, canvasArea);
     } else {
-        // Kanji Practice/Test Logic
+        // Kanji Modes
         inputArea.style.display = "none";
         canvasArea.style.display = "block";
         currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
-        
         if (mode === "kanji_test") {
             qBox.innerText = "？";
-            mBox.innerHTML = `<b style="color:green; font-size:1.2rem;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
+            mBox.innerHTML = `<b style="color:green;">${currentQ.reading}</b><br>${currentQ.meaning_en}`;
         } else {
             qBox.innerText = currentQ.kanji;
             mBox.innerText = currentQ.meaning_en;
@@ -82,13 +76,13 @@ window.nextQuestion = () => {
     }
 };
 
-function handleWordCycle(qBox, mBox, inputArea, canvasArea) {
+// Mode: Word Practice (Learn 5 -> Test 5)
+function handleWordPractice(qBox, mBox, inputArea, canvasArea) {
     if (!isTestingPhase) {
-        // STUDYING PHASE
         if (wordBatch.length < 5) {
-            let nextW = filteredData[Math.floor(Math.random() * filteredData.length)];
-            wordBatch.push(nextW);
-            currentQ = nextW;
+            let nw = filteredData[Math.floor(Math.random() * filteredData.length)];
+            wordBatch.push(nw);
+            currentQ = nw;
         } else {
             currentQ = wordBatch[batchIndex];
             batchIndex++;
@@ -99,14 +93,23 @@ function handleWordCycle(qBox, mBox, inputArea, canvasArea) {
         inputArea.style.display = "none";
         canvasArea.style.display = "block";
     } else {
-        // TESTING PHASE
         currentQ = wordBatch[batchIndex];
         qBox.innerText = currentQ.reading;
-        mBox.innerText = "Type the English meaning:";
+        mBox.innerText = "What is the English meaning?";
         inputArea.style.display = "block";
         canvasArea.style.display = "none";
         document.getElementById("answer-input").value = "";
     }
+}
+
+// Mode: Word Test (Random Furigana -> Type Meaning)
+function handleWordTest(qBox, mBox, inputArea, canvasArea) {
+    currentQ = filteredData[Math.floor(Math.random() * filteredData.length)];
+    qBox.innerText = currentQ.reading;
+    mBox.innerText = "Type the English meaning:";
+    inputArea.style.display = "block";
+    canvasArea.style.display = "none";
+    document.getElementById("answer-input").value = "";
 }
 
 window.checkAction = async () => {
@@ -116,7 +119,7 @@ window.checkAction = async () => {
     if (isTyping) {
         const val = document.getElementById("answer-input").value.toLowerCase().trim();
         isCorrect = val === currentQ.meaning_en.toLowerCase().trim();
-        if (isCorrect) {
+        if (isCorrect && document.getElementById("mode").value === "word_practice") {
             batchIndex++;
             if (batchIndex >= 5) { isTestingPhase = false; wordBatch = []; batchIndex = 0; }
         }
@@ -125,12 +128,8 @@ window.checkAction = async () => {
         isCorrect = candidates.slice(0, 3).includes(currentQ.kanji);
     }
 
-    showResult(isCorrect);
-};
-
-function showResult(correct) {
     const resEl = document.getElementById("result");
-    if (correct) {
+    if (isCorrect) {
         resEl.innerText = "✅ Correct!";
         resEl.style.color = "green";
         sounds.correct.play();
@@ -143,7 +142,7 @@ function showResult(correct) {
         if (score > 0) score -= 5;
     }
     document.getElementById("score").innerText = score;
-}
+};
 
 window.goBack = () => {
     document.getElementById("menu").style.display = "block";
