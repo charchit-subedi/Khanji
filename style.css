@@ -1,7 +1,25 @@
-body { font-family: sans-serif; background: #f4f4f4; text-align: center; margin: 0; padding: 10px; }
-.container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-h1 { color: #333; margin-bottom: 5px; }
-select, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #ccc; font-size: 1rem; }
-button { border: none; font-weight: bold; cursor: pointer; color: white; }
-#question-box { margin: 15px 0; padding: 10px; border-radius: 15px; }
-canvas { border: 3px solid #4CAF50; border-radius: 15px; background: #fff; max-width: 100%; height: auto; touch-action: none; }
+/* ===== ADMIN PANEL FIX ===== */
+
+textarea {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  background: #4CAF50;
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+button:active {
+  opacity: 0.7;
+}
