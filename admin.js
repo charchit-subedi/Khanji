@@ -14,7 +14,6 @@ document.getElementById("runBtn").addEventListener("click", runAction);
 
 // MAIN FUNCTION
 async function runAction() {
-  alert("Button clicked ✅"); // DEBUG (you can remove later)
 
   const level = document.getElementById("level").value;
   const action = document.querySelector('input[name="action"]:checked').value;
