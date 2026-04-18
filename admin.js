@@ -1,8 +1,21 @@
 import { db } from "./firebase.js";
-import { collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+console.log("ADMIN JS LOADED");
+
+// BUTTON CLICK
+document.getElementById("runBtn").addEventListener("click", runAction);
 
 // MAIN FUNCTION
-window.runAction = async function () {
+async function runAction() {
+  alert("Button clicked ✅"); // DEBUG (you can remove later)
+
   const level = document.getElementById("level").value;
   const action = document.querySelector('input[name="action"]:checked').value;
   const status = document.getElementById("status");
@@ -24,31 +37,32 @@ window.runAction = async function () {
   }
 
   // ===== UPLOAD =====
-  if (action === "upload") {
-    const input = document.getElementById("jsonInput").value;
+  const input = document.getElementById("jsonInput").value;
 
-    if (!input.trim()) {
-      status.innerText = "⚠️ Paste JSON first!";
-      return;
-    }
-
-    let data;
-    try {
-      data = JSON.parse(input);
-    } catch (e) {
-      status.innerText = "❌ Invalid JSON!";
-      return;
-    }
-
-    let count = 0;
-
-    for (let item of data) {
-      if (!item.level) item.level = level;
-
-      await addDoc(collection(db, "kanji"), item);
-      count++;
-    }
-
-    status.innerText = `✅ Uploaded ${count} items`;
+  if (!input.trim()) {
+    status.innerText = "⚠️ Paste JSON first!";
+    return;
   }
-};
+
+  let data;
+  try {
+    data = JSON.parse(input);
+  } catch (e) {
+    status.innerText = "❌ Invalid JSON: " + e.message;
+    return;
+  }
+
+  let count = 0;
+
+  for (let item of data) {
+    if (!item.level) item.level = level;
+
+    await addDoc(collection(db, "kanji"), item);
+    count++;
+  }
+
+  status.innerText = `✅ Uploaded ${count} items`;
+
+  // CLEAR INPUT
+  document.getElementById("jsonInput").value = "";
+}
